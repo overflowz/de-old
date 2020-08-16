@@ -47,9 +47,9 @@ __metadata:
   dependencies:
     "@types/uuid": ^8.3.0
     "@yarnpkg/pnpify": ^2.1.0
-    typescript: latest
+    typescript: ^3.9.7
     utility-types: ^3.10.0
-    uuid: latest
+    uuid: ^8.3.0
   languageName: unknown
   linkType: soft
 
@@ -1232,7 +1232,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-typescript@latest:
+typescript@^3.9.7:
   version: 3.9.7
   resolution: "typescript@npm:3.9.7"
   bin:
@@ -1242,7 +1242,7 @@ typescript@latest:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@latest#builtin<compat/typescript>":
+"typescript@patch:typescript@^3.9.7#builtin<compat/typescript>":
   version: 3.9.7
   resolution: "typescript@patch:typescript@npm%3A3.9.7#builtin<compat/typescript>::version=3.9.7&hash=5b02a2"
   bin:
@@ -1266,7 +1266,7 @@ typescript@latest:
   languageName: node
   linkType: hard
 
-"uuid@npm:latest":
+"uuid@npm:^8.3.0":
   version: 8.3.0
   resolution: "uuid@npm:8.3.0"
   bin:

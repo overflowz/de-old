@@ -14,10 +14,10 @@
   "devDependencies": {
     "@types/uuid": "^8.3.0",
     "@yarnpkg/pnpify": "^2.1.0",
-    "typescript": "latest",
-    "utility-types": "^3.10.0"
+    "typescript": "^3.9.7"
   },
   "dependencies": {
-    "uuid": "latest"
+    "utility-types": "^3.10.0",
+    "uuid": "^8.3.0"
   }
 }
