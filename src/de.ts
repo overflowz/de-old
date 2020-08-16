@@ -47,6 +47,7 @@ export class DomainEvents {
   }
 
   public async invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T> {
+    let completeCallbackError: Error | undefined;
     let returnEvent: T = {
       ...event,
       parent: parent ?? null,
@@ -79,10 +80,19 @@ export class DomainEvents {
             childEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
-          returnEvent = {
-            ...returnEvent,
-            ...this.completeEvent(returnEvent, childEventStates, handler),
-          };
+          try {
+            returnEvent = {
+              ...returnEvent,
+              ...this.completeEvent(returnEvent, childEventStates, handler),
+            };
+          } catch (err) {
+            completeCallbackError = err;
+
+            returnEvent = {
+              ...returnEvent,
+              errors: [...returnEvent.errors ?? [], err],
+            };
+          }
         }
 
         returnEvent = {
@@ -91,6 +101,12 @@ export class DomainEvents {
         };
 
         await this.adapter?.afterInvoke?.(returnEvent);
+
+        // if complete callback threw an error, rethrow it. we need
+        // this check to make sure the adapter is called before throwing.
+        if (completeCallbackError) {
+          throw completeCallbackError;
+        }
       }
     }
 
