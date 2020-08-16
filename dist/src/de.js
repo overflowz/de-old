@@ -72,10 +72,11 @@ class DomainEvents {
     invoke(event, parent) {
         var _a, _b, _c, _d, _e;
         return __awaiter(this, void 0, void 0, function* () {
-            yield ((_b = (_a = this.adapter) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, event));
-            let returnEvent = Object.assign(Object.assign({}, event), { executedAt: Date.now(), parent: parent !== null && parent !== void 0 ? parent : null });
+            let returnEvent = Object.assign(Object.assign({}, event), { parent: parent !== null && parent !== void 0 ? parent : null });
             for (const [eventTypeId, handlers] of this.eventMap.entries()) {
                 if (eventTypeId === event.name) {
+                    yield ((_b = (_a = this.adapter) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent));
+                    returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                     for (const handler of handlers) {
                         let childEvents = [];
                         try {
@@ -87,11 +88,12 @@ class DomainEvents {
                         }
                         // if there are any errors, pass an empty array instead.
                         const childEventStates = returnEvent.errors.length ? [] : yield Promise.all(childEvents.map((event) => this.invoke(event, returnEvent.id)));
-                        returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() }), this.completeEvent(returnEvent, childEventStates, handler));
+                        returnEvent = Object.assign(Object.assign({}, returnEvent), this.completeEvent(returnEvent, childEventStates, handler));
                     }
+                    returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
+                    yield ((_e = (_d = this.adapter) === null || _d === void 0 ? void 0 : _d.afterInvoke) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent));
                 }
             }
-            yield ((_e = (_d = this.adapter) === null || _d === void 0 ? void 0 : _d.afterInvoke) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent));
             return returnEvent;
         });
     }
