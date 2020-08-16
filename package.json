@@ -1,0 +1,23 @@
+{
+  "name": "de",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [],
+  "author": "Nika Gogeshvili <gogeshvili.nika@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "",
+    "prepublish": "yarn pnpify tsc"
+  },
+  "devDependencies": {
+    "@types/uuid": "^8.3.0",
+    "@yarnpkg/pnpify": "^2.1.0",
+    "typescript": "latest",
+    "utility-types": "^3.10.0"
+  },
+  "dependencies": {
+    "uuid": "latest"
+  }
+}
