@@ -1,13 +1,9 @@
-import { DeepReadonly } from 'utility-types';
-declare type PureActionReturnType = void | IDomainEvent[];
-declare type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
-export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
-export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'name'> & {
-    params: DeepReadonly<T['params']>;
-    state: DeepReadonly<T['state']>;
-    parent?: T['parent'];
+declare type primitive = string | number | boolean | undefined | null;
+declare type DeepReadonly<T> = T extends primitive ? T : DeepReadonlyObject<T>;
+declare type DeepReadonlyObject<T> = {
+    readonly [P in keyof T]: DeepReadonly<T[P]>;
 };
-export interface IDomainEvent<P extends object = {}, S extends object = {}> {
+export interface IDomainEvent<P extends object = object, S extends object = object> {
     readonly id: string;
     readonly parent: string | null;
     readonly name: string;
@@ -18,6 +14,12 @@ export interface IDomainEvent<P extends object = {}, S extends object = {}> {
     readonly completedAt: number | null;
     state: DeepReadonly<S>;
 }
+export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
+export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'name' | 'params' | 'state'> & {
+    parent?: T['parent'];
+};
+declare type PureActionReturnType = void | IDomainEvent[];
+declare type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
 export interface IDomainHandler<T extends IDomainEvent> {
     initiate?: (event: T) => T | Promise<T>;
     execute?: (event: T) => ImpureActionReturnType;
