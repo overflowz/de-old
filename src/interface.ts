@@ -17,9 +17,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 }
 
 export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
-export type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'name' | 'params' | 'state'> & {
-  parent?: T['parent'];
-};
+export type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'name' | 'params' | 'state'>;
 
 type PureActionReturnType = void | IDomainEvent[];
 type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
