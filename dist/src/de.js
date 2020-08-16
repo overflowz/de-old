@@ -70,8 +70,9 @@ class DomainEvents {
         }
     }
     invoke(event, parent) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         return __awaiter(this, void 0, void 0, function* () {
+            let completeCallbackError;
             let returnEvent = Object.assign(Object.assign({}, event), { parent: parent !== null && parent !== void 0 ? parent : null });
             for (const [eventTypeId, handlers] of this.eventMap.entries()) {
                 if (eventTypeId === event.name) {
@@ -88,10 +89,21 @@ class DomainEvents {
                         }
                         // if there are any errors, pass an empty array instead.
                         const childEventStates = returnEvent.errors.length ? [] : yield Promise.all(childEvents.map((event) => this.invoke(event, returnEvent.id)));
-                        returnEvent = Object.assign(Object.assign({}, returnEvent), this.completeEvent(returnEvent, childEventStates, handler));
+                        try {
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), this.completeEvent(returnEvent, childEventStates, handler));
+                        }
+                        catch (err) {
+                            completeCallbackError = err;
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_d = returnEvent.errors) !== null && _d !== void 0 ? _d : [], err] });
+                        }
                     }
                     returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
-                    yield ((_e = (_d = this.adapter) === null || _d === void 0 ? void 0 : _d.afterInvoke) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent));
+                    yield ((_f = (_e = this.adapter) === null || _e === void 0 ? void 0 : _e.afterInvoke) === null || _f === void 0 ? void 0 : _f.call(_e, returnEvent));
+                    // if complete callback threw an error, rethrow it. we need
+                    // this check to make sure the adapter is called before throwing.
+                    if (completeCallbackError) {
+                        throw completeCallbackError;
+                    }
                 }
             }
             return returnEvent;
