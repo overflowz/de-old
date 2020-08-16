@@ -49,13 +49,17 @@ export class DomainEvents {
   public async invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T> {
     let returnEvent: T = {
       ...event,
-      executedAt: Date.now(),
       parent: parent ?? null,
     };
 
     for (const [eventTypeId, handlers] of this.eventMap.entries()) {
       if (eventTypeId === event.name) {
-        await this.adapter?.beforeInvoke?.(event);
+        await this.adapter?.beforeInvoke?.(returnEvent);
+
+        returnEvent = {
+          ...returnEvent,
+          executedAt: Date.now(),
+        };
 
         for (const handler of handlers) {
           let childEvents: IDomainEvent[] = [];
@@ -77,10 +81,14 @@ export class DomainEvents {
 
           returnEvent = {
             ...returnEvent,
-            completedAt: Date.now(),
             ...this.completeEvent(returnEvent, childEventStates, handler),
           };
         }
+
+        returnEvent = {
+          ...returnEvent,
+          completedAt: Date.now(),
+        };
 
         await this.adapter?.afterInvoke?.(returnEvent);
       }
