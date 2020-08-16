@@ -8,7 +8,7 @@
   "author": "Nika Gogeshvili <gogeshvili.nika@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "preinstall": "",
+    "build": "yarn pnpify tsc",
     "prepublish": "yarn pnpify tsc"
   },
   "devDependencies": {

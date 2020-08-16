@@ -41,6 +41,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@overflowz/de@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@overflowz/de@workspace:."
+  dependencies:
+    "@types/uuid": ^8.3.0
+    "@yarnpkg/pnpify": ^2.1.0
+    typescript: latest
+    utility-types: ^3.10.0
+    uuid: latest
+  languageName: unknown
+  linkType: soft
+
 "@sindresorhus/is@npm:^3.0.0":
   version: 3.1.1
   resolution: "@sindresorhus/is@npm:3.1.1"
@@ -455,18 +467,6 @@ __metadata:
   checksum: 51f10036f5f1de781be98f4738d58b50c6d44f4f471069b8ab075b21605893ba1548654880f7310a29a732d6fc7cd481da6026169b9f0831cab0148a62fb397a
   languageName: node
   linkType: hard
-
-"de@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "de@workspace:."
-  dependencies:
-    "@types/uuid": ^8.3.0
-    "@yarnpkg/pnpify": ^2.1.0
-    typescript: latest
-    utility-types: ^3.10.0
-    uuid: latest
-  languageName: unknown
-  linkType: soft
 
 "decompress-response@npm:^6.0.0":
   version: 6.0.0
