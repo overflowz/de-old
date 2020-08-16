@@ -47,8 +47,6 @@ export class DomainEvents {
   }
 
   public async invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T> {
-    await this.adapter?.beforeInvoke?.(event);
-
     let returnEvent: T = {
       ...event,
       executedAt: Date.now(),
@@ -57,6 +55,8 @@ export class DomainEvents {
 
     for (const [eventTypeId, handlers] of this.eventMap.entries()) {
       if (eventTypeId === event.name) {
+        await this.adapter?.beforeInvoke?.(event);
+
         for (const handler of handlers) {
           let childEvents: IDomainEvent[] = [];
 
@@ -81,10 +81,11 @@ export class DomainEvents {
             ...this.completeEvent(returnEvent, childEventStates, handler),
           };
         }
+
+        await this.adapter?.afterInvoke?.(returnEvent);
       }
     }
 
-    await this.adapter?.afterInvoke?.(returnEvent);
     return returnEvent;
   }
 };
