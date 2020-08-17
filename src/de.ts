@@ -10,7 +10,7 @@ import {
 export class DomainEvents {
   constructor(private readonly adapter?: IDomainEventAdapter) { }
 
-  private readonly eventMap: Map<IDomainEvent['name'], IDomainHandler<any>[]> = new Map();
+  private readonly eventMap: Map<IDomainEvent['type'], IDomainHandler<any>[]> = new Map();
 
   private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<T> {
     return await handler.initiate?.(event) ?? event;
@@ -28,21 +28,21 @@ export class DomainEvents {
     return event;
   }
 
-  public on<T extends IDomainEvent>(eventName: T['name'], handler: IDomainHandler<T>): void {
-    const handlers = this.eventMap.get(eventName) ?? [];
+  public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void {
+    const handlers = this.eventMap.get(eventType) ?? [];
 
     if (!handlers.includes(handler)) {
       handlers.push(handler);
     }
 
-    this.eventMap.set(eventName, handlers);
+    this.eventMap.set(eventType, handlers);
   }
 
-  public off<T extends IDomainEvent>(eventName: T['name'], handler: IDomainHandler<T>): void {
-    const handlers = this.eventMap.get(eventName) ?? [];
+  public off<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void {
+    const handlers = this.eventMap.get(eventType) ?? [];
 
     if (handlers.includes(handler)) {
-      this.eventMap.set(eventName, handlers.filter(f => f !== handler));
+      this.eventMap.set(eventType, handlers.filter(f => f !== handler));
     }
   }
 
@@ -53,8 +53,8 @@ export class DomainEvents {
       parent: parent ?? null,
     };
 
-    for (const [eventTypeId, handlers] of this.eventMap.entries()) {
-      if (eventTypeId === event.name) {
+    for (const [eventType, handlers] of this.eventMap.entries()) {
+      if (eventType === event.type) {
         await this.adapter?.beforeInvoke?.(returnEvent);
 
         returnEvent = {
@@ -115,7 +115,7 @@ export class DomainEvents {
 };
 
 export const createDomainEvent = <T extends IDomainEvent>({
-  name,
+  type,
   params,
   state,
 }: CreateDomainEventArgs<T>): CreateDomainEventReturnType<T> => ({
@@ -124,7 +124,7 @@ export const createDomainEvent = <T extends IDomainEvent>({
   createdAt: Date.now(),
   executedAt: null,
   completedAt: null,
-  name,
+  type,
   params,
   state,
   errors: [],
