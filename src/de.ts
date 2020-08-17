@@ -117,7 +117,6 @@ export class DomainEvents {
 export const createDomainEvent = <T extends IDomainEvent>({
   type,
   params,
-  state,
 }: CreateDomainEventArgs<T>): CreateDomainEventReturnType<T> => ({
   id: uuid.v4(),
   parent: null,
@@ -126,6 +125,6 @@ export const createDomainEvent = <T extends IDomainEvent>({
   completedAt: null,
   type,
   params,
-  state,
+  state: {},
   errors: [],
 });
