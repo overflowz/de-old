@@ -6,7 +6,7 @@ declare type DeepReadonlyObject<T> = {
 export interface IDomainEvent<P extends object = object, S extends object = object> {
     readonly id: string;
     readonly parent: string | null;
-    readonly name: string;
+    readonly type: string;
     readonly params: DeepReadonly<P>;
     readonly errors: DeepReadonly<Error[]>;
     readonly createdAt: number;
@@ -15,7 +15,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
     state: DeepReadonly<S>;
 }
 export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
-export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'name' | 'params' | 'state'>;
+export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params' | 'state'>;
 declare type PureActionReturnType = void | IDomainEvent[];
 declare type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
 export interface IDomainHandler<T extends IDomainEvent> {

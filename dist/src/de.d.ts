@@ -6,8 +6,8 @@ export declare class DomainEvents {
     private initiateEvent;
     private executeEvent;
     private completeEvent;
-    on<T extends IDomainEvent>(eventName: T['name'], handler: IDomainHandler<T>): void;
-    off<T extends IDomainEvent>(eventName: T['name'], handler: IDomainHandler<T>): void;
+    on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void;
+    off<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void;
     invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T>;
 }
-export declare const createDomainEvent: <T extends IDomainEvent<object, object>>({ name, params, state, }: Pick<T, "name" | "params" | "state">) => Pick<T, "id" | "parent" | "name" | "params" | "errors" | "createdAt" | "executedAt" | "completedAt" | "state">;
+export declare const createDomainEvent: <T extends IDomainEvent<object, object>>({ type, params, state, }: Pick<T, "type" | "params" | "state">) => Pick<T, "id" | "parent" | "type" | "params" | "errors" | "createdAt" | "executedAt" | "completedAt" | "state">;

@@ -54,19 +54,19 @@ class DomainEvents {
         }
         return event;
     }
-    on(eventName, handler) {
+    on(eventType, handler) {
         var _a;
-        const handlers = (_a = this.eventMap.get(eventName)) !== null && _a !== void 0 ? _a : [];
+        const handlers = (_a = this.eventMap.get(eventType)) !== null && _a !== void 0 ? _a : [];
         if (!handlers.includes(handler)) {
             handlers.push(handler);
         }
-        this.eventMap.set(eventName, handlers);
+        this.eventMap.set(eventType, handlers);
     }
-    off(eventName, handler) {
+    off(eventType, handler) {
         var _a;
-        const handlers = (_a = this.eventMap.get(eventName)) !== null && _a !== void 0 ? _a : [];
+        const handlers = (_a = this.eventMap.get(eventType)) !== null && _a !== void 0 ? _a : [];
         if (handlers.includes(handler)) {
-            this.eventMap.set(eventName, handlers.filter(f => f !== handler));
+            this.eventMap.set(eventType, handlers.filter(f => f !== handler));
         }
     }
     invoke(event, parent) {
@@ -74,8 +74,8 @@ class DomainEvents {
         return __awaiter(this, void 0, void 0, function* () {
             let completeCallbackError;
             let returnEvent = Object.assign(Object.assign({}, event), { parent: parent !== null && parent !== void 0 ? parent : null });
-            for (const [eventTypeId, handlers] of this.eventMap.entries()) {
-                if (eventTypeId === event.name) {
+            for (const [eventType, handlers] of this.eventMap.entries()) {
+                if (eventType === event.type) {
                     yield ((_b = (_a = this.adapter) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent));
                     returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                     for (const handler of handlers) {
@@ -112,13 +112,13 @@ class DomainEvents {
 }
 exports.DomainEvents = DomainEvents;
 ;
-exports.createDomainEvent = ({ name, params, state, }) => ({
+exports.createDomainEvent = ({ type, params, state, }) => ({
     id: uuid.v4(),
     parent: null,
     createdAt: Date.now(),
     executedAt: null,
     completedAt: null,
-    name,
+    type,
     params,
     state,
     errors: [],
