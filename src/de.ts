@@ -12,12 +12,12 @@ export class DomainEvents {
 
   private readonly eventMap: Map<IDomainEvent['type'], IDomainHandler<any>[]> = new Map();
 
-  private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<T> {
-    return await handler.initiate?.(event) ?? event;
+  private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
+    return await handler.initiate?.(event) || [];
   }
 
-  private async executeEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
-    return await handler.execute?.(event) || [];
+  private async executeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
+    return await handler.execute?.(event, events) || [];
   }
 
   private completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): T {
@@ -63,11 +63,11 @@ export class DomainEvents {
         };
 
         for (const handler of handlers) {
-          let childEvents: IDomainEvent[] = [];
+          let beforeExecuteEvents: IDomainEvent[] = [];
+          let beforeCompleteEvents: IDomainEvent[] = [];
 
           try {
-            returnEvent = await this.initiateEvent(returnEvent, handler);
-            childEvents = await this.executeEvent(returnEvent, handler);
+            beforeExecuteEvents = await this.initiateEvent(returnEvent, handler);
           } catch (err) {
             returnEvent = {
               ...returnEvent,
@@ -75,15 +75,29 @@ export class DomainEvents {
             };
           }
 
-          // if there are any errors, pass an empty array instead.
-          const childEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            childEvents.map((event) => this.invoke(event, returnEvent.id)),
+          const initiateChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
+            beforeExecuteEvents.map((event) => this.invoke(event, returnEvent.id)),
+          );
+
+          if (!returnEvent.errors.length) {
+            try {
+              beforeCompleteEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
+            } catch (err) {
+              returnEvent = {
+                ...returnEvent,
+                errors: [...returnEvent.errors ?? [], err],
+              };
+            }
+          }
+
+          const executeChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
+            beforeCompleteEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
           try {
             returnEvent = {
               ...returnEvent,
-              ...this.completeEvent(returnEvent, childEventStates, handler),
+              ...this.completeEvent(returnEvent, executeChildEventStates, handler),
             };
           } catch (err) {
             completeCallbackError = err;

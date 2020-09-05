@@ -23,8 +23,8 @@ type PureActionReturnType = void | IDomainEvent[];
 type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
 
 export interface IDomainHandler<T extends IDomainEvent> {
-  initiate?: (event: T) => T | Promise<T>;
-  execute?: (event: T) => ImpureActionReturnType;
+  initiate?: (event: T) => ImpureActionReturnType;
+  execute?: (event: T, childEvents: IDomainEvent[]) => ImpureActionReturnType;
   complete?: (event: T, childEvents: IDomainEvent[]) => T | undefined;
 }
 
