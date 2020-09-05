@@ -1,12 +1,12 @@
 import * as uuid from 'uuid';
 
 import {
-  CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventAdapter,
+  CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
   IDomainHandler,
 } from './interface';
 
 export class DomainEvents {
-  constructor(private readonly adapter?: IDomainEventAdapter) { }
+  constructor(private readonly hooks?: IDomainEventHooks) { }
 
   private readonly eventMap: Map<IDomainEvent['type'], IDomainHandler<any>[]> = new Map();
 
@@ -53,7 +53,7 @@ export class DomainEvents {
 
     for (const [eventType, handlers] of this.eventMap.entries()) {
       if (eventType === event.type) {
-        await this.adapter?.beforeInvoke?.(returnEvent);
+        await this.hooks?.beforeInvoke?.(returnEvent);
 
         returnEvent = {
           ...returnEvent,
@@ -112,7 +112,7 @@ export class DomainEvents {
           completedAt: Date.now(),
         };
 
-        await this.adapter?.afterInvoke?.(returnEvent);
+        await this.hooks?.afterInvoke?.(returnEvent);
 
         // if complete callback threw an error, rethrow it. we need
         // this check to make sure the adapter is called before throwing.

@@ -28,7 +28,7 @@ export interface IDomainHandler<T extends IDomainEvent> {
   complete?: (event: T, childEvents: IDomainEvent[]) => T | undefined;
 }
 
-export interface IDomainEventAdapter {
+export interface IDomainEventHooks {
   beforeInvoke?: (event: IDomainEvent) => void | Promise<void>;
   afterInvoke?: (event: IDomainEvent) => void | Promise<void>;
 }
