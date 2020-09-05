@@ -1,10 +1,8 @@
 import * as uuid from 'uuid';
+
 import {
-  IDomainEventAdapter,
-  IDomainEvent,
+  CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventAdapter,
   IDomainHandler,
-  CreateDomainEventArgs,
-  CreateDomainEventReturnType,
 } from './interface';
 
 export class DomainEvents {
@@ -63,11 +61,11 @@ export class DomainEvents {
         };
 
         for (const handler of handlers) {
-          let beforeExecuteEvents: IDomainEvent[] = [];
-          let beforeCompleteEvents: IDomainEvent[] = [];
+          let initiateChildEvents: IDomainEvent[] = [];
+          let executeChildEvents: IDomainEvent[] = [];
 
           try {
-            beforeExecuteEvents = await this.initiateEvent(returnEvent, handler);
+            initiateChildEvents = await this.initiateEvent(returnEvent, handler);
           } catch (err) {
             returnEvent = {
               ...returnEvent,
@@ -76,12 +74,12 @@ export class DomainEvents {
           }
 
           const initiateChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            beforeExecuteEvents.map((event) => this.invoke(event, returnEvent.id)),
+            initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
           if (!returnEvent.errors.length) {
             try {
-              beforeCompleteEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
+              executeChildEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
             } catch (err) {
               returnEvent = {
                 ...returnEvent,
@@ -91,7 +89,7 @@ export class DomainEvents {
           }
 
           const executeChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            beforeCompleteEvents.map((event) => this.invoke(event, returnEvent.id)),
+            executeChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
           try {
