@@ -19,11 +19,11 @@ export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'typ
 declare type PureActionReturnType = void | IDomainEvent[];
 declare type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
 export interface IDomainHandler<T extends IDomainEvent> {
-    initiate?: (event: T) => T | Promise<T>;
-    execute?: (event: T) => ImpureActionReturnType;
+    initiate?: (event: T) => ImpureActionReturnType;
+    execute?: (event: T, childEvents: IDomainEvent[]) => ImpureActionReturnType;
     complete?: (event: T, childEvents: IDomainEvent[]) => T | undefined;
 }
-export interface IDomainEventAdapter {
+export interface IDomainEventHooks {
     beforeInvoke?: (event: IDomainEvent) => void | Promise<void>;
     afterInvoke?: (event: IDomainEvent) => void | Promise<void>;
 }

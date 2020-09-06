@@ -1,7 +1,7 @@
-import { IDomainEventAdapter, IDomainEvent, IDomainHandler, CreateDomainEventArgs, CreateDomainEventReturnType } from './interface';
+import { CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks, IDomainHandler } from './interface';
 export declare class DomainEvents {
-    private readonly adapter?;
-    constructor(adapter?: IDomainEventAdapter | undefined);
+    private readonly hooks?;
+    constructor(hooks?: IDomainEventHooks | undefined);
     private readonly eventMap;
     private initiateEvent;
     private executeEvent;
