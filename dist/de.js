@@ -50,9 +50,9 @@ class DomainEvents {
     completeEvent(event, events, handler) {
         var _a;
         if (typeof handler.complete === 'function') {
-            return (_a = handler.complete(event, events)) !== null && _a !== void 0 ? _a : event;
+            return (_a = handler.complete(event, events)) !== null && _a !== void 0 ? _a : event.state;
         }
-        return event;
+        return event.state;
     }
     on(eventType, handler) {
         var _a;
@@ -77,11 +77,11 @@ class DomainEvents {
             returnEvent = (yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent))) || returnEvent;
             for (const [eventType, handlers] of this.eventMap.entries()) {
                 if (eventType === event.type) {
-                    returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
                         returnEvent = (yield ((_d = (_c = this.hooks) === null || _c === void 0 ? void 0 : _c.beforeInitiate) === null || _d === void 0 ? void 0 : _d.call(_c, returnEvent))) || returnEvent;
+                        returnEvent = Object.assign(Object.assign({}, returnEvent), { initiatedAt: Date.now() });
                         try {
                             initiateChildEvents = yield this.initiateEvent(returnEvent, handler);
                         }
@@ -92,6 +92,7 @@ class DomainEvents {
                         yield ((_g = (_f = this.hooks) === null || _f === void 0 ? void 0 : _f.afterInitiate) === null || _g === void 0 ? void 0 : _g.call(_f, returnEvent));
                         if (!returnEvent.errors.length) {
                             returnEvent = (yield ((_j = (_h = this.hooks) === null || _h === void 0 ? void 0 : _h.beforeExecute) === null || _j === void 0 ? void 0 : _j.call(_h, returnEvent))) || returnEvent;
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                             try {
                                 executeChildEvents = yield this.executeEvent(returnEvent, initiateChildEventStates, handler);
                             }
@@ -102,15 +103,15 @@ class DomainEvents {
                         const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, returnEvent.id)));
                         yield ((_m = (_l = this.hooks) === null || _l === void 0 ? void 0 : _l.afterExecute) === null || _m === void 0 ? void 0 : _m.call(_l, returnEvent));
                         returnEvent = (yield ((_p = (_o = this.hooks) === null || _o === void 0 ? void 0 : _o.beforeComplete) === null || _p === void 0 ? void 0 : _p.call(_o, returnEvent))) || returnEvent;
+                        returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
                         try {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), this.completeEvent(returnEvent, executeChildEventStates, handler));
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { state: this.completeEvent(returnEvent, executeChildEventStates, handler) });
                         }
                         catch (err) {
                             completeCallbackError = err;
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_q = returnEvent.errors) !== null && _q !== void 0 ? _q : [], err] });
                         }
                     }
-                    returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
                     yield ((_s = (_r = this.hooks) === null || _r === void 0 ? void 0 : _r.afterComplete) === null || _s === void 0 ? void 0 : _s.call(_r, returnEvent));
                 }
             }
@@ -130,6 +131,7 @@ exports.createDomainEvent = ({ type, params, }) => ({
     id: uuid.v4(),
     parent: null,
     createdAt: Date.now(),
+    initiatedAt: null,
     executedAt: null,
     completedAt: null,
     type,
