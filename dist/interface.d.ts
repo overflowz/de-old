@@ -24,7 +24,13 @@ export interface IDomainHandler<T extends IDomainEvent> {
     complete?: (event: T, childEvents: IDomainEvent[]) => T | undefined;
 }
 export interface IDomainEventHooks {
-    beforeInvoke?: (event: IDomainEvent) => void | Promise<void>;
+    beforeInvoke?: <T extends IDomainEvent>(event: IDomainEvent) => void | Promise<void> | T | Promise<T>;
     afterInvoke?: (event: IDomainEvent) => void | Promise<void>;
+    beforeInitiate?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
+    afterInitiate?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
+    beforeExecute?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
+    afterExecute?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
+    beforeComplete?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
+    afterComplete?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
 }
 export {};

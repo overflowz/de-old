@@ -70,49 +70,55 @@ class DomainEvents {
         }
     }
     invoke(event, parent) {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u;
         return __awaiter(this, void 0, void 0, function* () {
             let completeCallbackError;
             let returnEvent = Object.assign(Object.assign({}, event), { parent: parent !== null && parent !== void 0 ? parent : null });
+            returnEvent = (yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent))) || returnEvent;
             for (const [eventType, handlers] of this.eventMap.entries()) {
                 if (eventType === event.type) {
-                    yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent));
                     returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
+                        returnEvent = (yield ((_d = (_c = this.hooks) === null || _c === void 0 ? void 0 : _c.beforeInitiate) === null || _d === void 0 ? void 0 : _d.call(_c, returnEvent))) || returnEvent;
                         try {
                             initiateChildEvents = yield this.initiateEvent(returnEvent, handler);
                         }
                         catch (err) {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_c = returnEvent.errors) !== null && _c !== void 0 ? _c : [], err] });
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_e = returnEvent.errors) !== null && _e !== void 0 ? _e : [], err] });
                         }
                         const initiateChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)));
+                        yield ((_g = (_f = this.hooks) === null || _f === void 0 ? void 0 : _f.afterInitiate) === null || _g === void 0 ? void 0 : _g.call(_f, returnEvent));
                         if (!returnEvent.errors.length) {
+                            returnEvent = (yield ((_j = (_h = this.hooks) === null || _h === void 0 ? void 0 : _h.beforeExecute) === null || _j === void 0 ? void 0 : _j.call(_h, returnEvent))) || returnEvent;
                             try {
                                 executeChildEvents = yield this.executeEvent(returnEvent, initiateChildEventStates, handler);
                             }
                             catch (err) {
-                                returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_d = returnEvent.errors) !== null && _d !== void 0 ? _d : [], err] });
+                                returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_k = returnEvent.errors) !== null && _k !== void 0 ? _k : [], err] });
                             }
                         }
                         const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, returnEvent.id)));
+                        yield ((_m = (_l = this.hooks) === null || _l === void 0 ? void 0 : _l.afterExecute) === null || _m === void 0 ? void 0 : _m.call(_l, returnEvent));
+                        returnEvent = (yield ((_p = (_o = this.hooks) === null || _o === void 0 ? void 0 : _o.beforeComplete) === null || _p === void 0 ? void 0 : _p.call(_o, returnEvent))) || returnEvent;
                         try {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), this.completeEvent(returnEvent, executeChildEventStates, handler));
                         }
                         catch (err) {
                             completeCallbackError = err;
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_e = returnEvent.errors) !== null && _e !== void 0 ? _e : [], err] });
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_q = returnEvent.errors) !== null && _q !== void 0 ? _q : [], err] });
                         }
                     }
                     returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
-                    yield ((_g = (_f = this.hooks) === null || _f === void 0 ? void 0 : _f.afterInvoke) === null || _g === void 0 ? void 0 : _g.call(_f, returnEvent));
-                    // if complete callback threw an error, rethrow it. we need
-                    // this check to make sure the adapter is called before throwing.
-                    if (completeCallbackError) {
-                        throw completeCallbackError;
-                    }
+                    yield ((_s = (_r = this.hooks) === null || _r === void 0 ? void 0 : _r.afterComplete) === null || _s === void 0 ? void 0 : _s.call(_r, returnEvent));
                 }
+            }
+            yield ((_u = (_t = this.hooks) === null || _t === void 0 ? void 0 : _t.afterInvoke) === null || _u === void 0 ? void 0 : _u.call(_t, returnEvent));
+            // if complete callback threw an error, rethrow it. we need
+            // this check to make sure the adapter is called before throwing.
+            if (completeCallbackError) {
+                throw completeCallbackError;
             }
             return returnEvent;
         });
