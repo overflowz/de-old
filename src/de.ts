@@ -18,12 +18,12 @@ export class DomainEvents {
     return await handler.execute?.(event, events) || [];
   }
 
-  private completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): T {
+  private completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): T['state'] {
     if (typeof handler.complete === 'function') {
-      return handler.complete(event, events) ?? event;
+      return handler.complete(event, events) ?? event.state;
     }
 
-    return event;
+    return event.state;
   }
 
   public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void {
@@ -55,16 +55,16 @@ export class DomainEvents {
 
     for (const [eventType, handlers] of this.eventMap.entries()) {
       if (eventType === event.type) {
-        returnEvent = {
-          ...returnEvent,
-          executedAt: Date.now(),
-        };
-
         for (const handler of handlers) {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
 
           returnEvent = await this.hooks?.beforeInitiate?.(returnEvent) || returnEvent;
+
+          returnEvent = {
+            ...returnEvent,
+            initiatedAt: Date.now(),
+          };
 
           try {
             initiateChildEvents = await this.initiateEvent(returnEvent, handler);
@@ -84,6 +84,11 @@ export class DomainEvents {
           if (!returnEvent.errors.length) {
             returnEvent = await this.hooks?.beforeExecute?.(returnEvent) || returnEvent;
 
+            returnEvent = {
+              ...returnEvent,
+              executedAt: Date.now(),
+            };
+
             try {
               executeChildEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
             } catch (err) {
@@ -101,10 +106,15 @@ export class DomainEvents {
           await this.hooks?.afterExecute?.(returnEvent);
           returnEvent = await this.hooks?.beforeComplete?.(returnEvent) || returnEvent;
 
+          returnEvent = {
+            ...returnEvent,
+            completedAt: Date.now(),
+          };
+
           try {
             returnEvent = {
               ...returnEvent,
-              ...this.completeEvent(returnEvent, executeChildEventStates, handler),
+              state: this.completeEvent(returnEvent, executeChildEventStates, handler),
             };
           } catch (err) {
             completeCallbackError = err;
@@ -115,11 +125,6 @@ export class DomainEvents {
             };
           }
         }
-
-        returnEvent = {
-          ...returnEvent,
-          completedAt: Date.now(),
-        };
 
         await this.hooks?.afterComplete?.(returnEvent);
       }
@@ -144,6 +149,7 @@ export const createDomainEvent = <T extends IDomainEvent>({
   id: uuid.v4(),
   parent: null,
   createdAt: Date.now(),
+  initiatedAt: null,
   executedAt: null,
   completedAt: null,
   type,

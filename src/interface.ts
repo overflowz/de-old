@@ -11,6 +11,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   readonly params: DeepReadonly<P>;
   readonly errors: DeepReadonly<Error[]>;
   readonly createdAt: number;
+  readonly initiatedAt: number | null;
   readonly executedAt: number | null;
   readonly completedAt: number | null;
   state: DeepReadonly<S>;
@@ -25,7 +26,7 @@ type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnTyp
 export interface IDomainHandler<T extends IDomainEvent> {
   initiate?: (event: T) => ImpureActionReturnType;
   execute?: (event: T, childEvents: IDomainEvent[]) => ImpureActionReturnType;
-  complete?: (event: T, childEvents: IDomainEvent[]) => T | undefined;
+  complete?: (event: T, childEvents: IDomainEvent[]) => T['state'] | undefined;
 }
 
 export interface IDomainEventHooks {
