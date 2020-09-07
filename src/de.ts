@@ -51,10 +51,10 @@ export class DomainEvents {
       parent: parent ?? null,
     };
 
+    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent) || returnEvent;
+
     for (const [eventType, handlers] of this.eventMap.entries()) {
       if (eventType === event.type) {
-        await this.hooks?.beforeInvoke?.(returnEvent);
-
         returnEvent = {
           ...returnEvent,
           executedAt: Date.now(),
@@ -63,6 +63,8 @@ export class DomainEvents {
         for (const handler of handlers) {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
+
+          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent) || returnEvent;
 
           try {
             initiateChildEvents = await this.initiateEvent(returnEvent, handler);
@@ -77,7 +79,11 @@ export class DomainEvents {
             initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
+          await this.hooks?.afterInitiate?.(returnEvent);
+
           if (!returnEvent.errors.length) {
+            returnEvent = await this.hooks?.beforeExecute?.(returnEvent) || returnEvent;
+
             try {
               executeChildEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
             } catch (err) {
@@ -91,6 +97,9 @@ export class DomainEvents {
           const executeChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
             executeChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
+
+          await this.hooks?.afterExecute?.(returnEvent);
+          returnEvent = await this.hooks?.beforeComplete?.(returnEvent) || returnEvent;
 
           try {
             returnEvent = {
@@ -112,14 +121,16 @@ export class DomainEvents {
           completedAt: Date.now(),
         };
 
-        await this.hooks?.afterInvoke?.(returnEvent);
-
-        // if complete callback threw an error, rethrow it. we need
-        // this check to make sure the adapter is called before throwing.
-        if (completeCallbackError) {
-          throw completeCallbackError;
-        }
+        await this.hooks?.afterComplete?.(returnEvent);
       }
+    }
+
+    await this.hooks?.afterInvoke?.(returnEvent);
+
+    // if complete callback threw an error, rethrow it. we need
+    // this check to make sure the adapter is called before throwing.
+    if (completeCallbackError) {
+      throw completeCallbackError;
     }
 
     return returnEvent;
