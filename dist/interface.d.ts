@@ -13,7 +13,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
     readonly initiatedAt: number | null;
     readonly executedAt: number | null;
     readonly completedAt: number | null;
-    state: DeepReadonly<S>;
+    readonly state: DeepReadonly<S>;
 }
 export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
 export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params'>;
