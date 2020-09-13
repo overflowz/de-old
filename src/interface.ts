@@ -8,13 +8,13 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   readonly id: string;
   readonly parent: string | null;
   readonly type: string;
-  readonly params: DeepReadonly<P>;
-  readonly errors: DeepReadonly<Error[]>;
   readonly createdAt: number;
   readonly initiatedAt: number | null;
   readonly executedAt: number | null;
   readonly completedAt: number | null;
+  readonly params: DeepReadonly<P>;
   readonly state: DeepReadonly<S>;
+  readonly errors: DeepReadonly<Error[]>;
 }
 
 export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
