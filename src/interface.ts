@@ -54,13 +54,13 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
 export type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params'>;
 
-type PureActionReturnType = void | IDomainEvent[];
-type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnType>;
+type ActionReturnType = void | IDomainEvent[] | Promise<void | IDomainEvent[]>;
+type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>
 
 export interface IDomainHandler<T extends IDomainEvent> {
-  initiate?: (event: T) => ImpureActionReturnType;
-  execute?: (event: T, children: IDomainEvent[]) => ImpureActionReturnType;
-  complete?: (event: T, children: IDomainEvent[]) => T['state'] | void | Promise<T['state'] | void>;
+  initiate?: (event: T) => ActionReturnType;
+  execute?: (event: T, children: IDomainEvent[]) => ActionReturnType;
+  complete?: (event: T, children: IDomainEvent[]) => CompleteReturnType<T>;
 }
 
 export interface IDomainEventHooks {
