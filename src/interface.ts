@@ -46,7 +46,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
    */
   readonly errors: DeepReadonly<Error[]>;
   /**
-   * custom metadata to attach (can be modified from the hooks)
+   * custom metadata (can be modified from the hooks)
    */
   readonly metadata: DeepReadonly<Record<string, any>>;
 }
