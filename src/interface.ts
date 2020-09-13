@@ -6,7 +6,7 @@ type DeepReadonlyObject<T> = {
 
 export interface IDomainEvent<P extends object = object, S extends object = object> {
   readonly id: string;
-  readonly parent: string | null;
+  readonly parent: this['id'] | null;
   readonly type: string;
   readonly createdAt: number;
   readonly initiatedAt: number | null;
@@ -15,6 +15,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   readonly params: DeepReadonly<P>;
   readonly state: DeepReadonly<S>;
   readonly errors: DeepReadonly<Error[]>;
+  readonly metadata: DeepReadonly<Record<string, any>>;
 }
 
 export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
@@ -25,17 +26,17 @@ type ImpureActionReturnType = PureActionReturnType | Promise<PureActionReturnTyp
 
 export interface IDomainHandler<T extends IDomainEvent> {
   initiate?: (event: T) => ImpureActionReturnType;
-  execute?: (event: T, childEvents: IDomainEvent[]) => ImpureActionReturnType;
-  complete?: (event: T, childEvents: IDomainEvent[]) => T['state'] | undefined;
+  execute?: (event: T, children: IDomainEvent[]) => ImpureActionReturnType;
+  complete?: (event: T, children: IDomainEvent[]) => T['state'] | void | Promise<T['state'] | void>;
 }
 
 export interface IDomainEventHooks {
   beforeInvoke?: <T extends IDomainEvent>(event: IDomainEvent) => void | Promise<void> | T | Promise<T>;
-  afterInvoke?: (event: IDomainEvent) => void | Promise<void>;
   beforeInitiate?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
   afterInitiate?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
   beforeExecute?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
   afterExecute?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
   beforeComplete?: <T extends IDomainEvent>(event: T) => void | Promise<void> | T | Promise<T>;
   afterComplete?: <T extends IDomainEvent>(event: T) => void | Promise<void>;
+  afterInvoke?: (event: IDomainEvent) => void | Promise<void>;
 }

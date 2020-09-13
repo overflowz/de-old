@@ -18,7 +18,7 @@ export class DomainEvents {
     return await handler.execute?.(event, events) || [];
   }
 
-  private completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): T['state'] {
+  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<T['state'] | void> {
     if (typeof handler.complete === 'function') {
       return handler.complete(event, events) ?? event.state;
     }
@@ -45,7 +45,6 @@ export class DomainEvents {
   }
 
   public async invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T> {
-    let completeCallbackError: Error | undefined;
     let returnEvent: T = {
       ...event,
       parent: parent ?? null,
@@ -114,15 +113,18 @@ export class DomainEvents {
           try {
             returnEvent = {
               ...returnEvent,
-              state: this.completeEvent(returnEvent, executeChildEventStates, handler),
+              state: await this.completeEvent<T>(returnEvent, executeChildEventStates, handler),
             };
           } catch (err) {
-            completeCallbackError = err;
-
             returnEvent = {
               ...returnEvent,
               errors: [...returnEvent.errors ?? [], err],
             };
+
+            await this.hooks?.afterComplete?.(returnEvent);
+            await this.hooks?.afterInvoke?.(returnEvent);
+
+            throw err;
           }
         }
 
@@ -131,13 +133,6 @@ export class DomainEvents {
     }
 
     await this.hooks?.afterInvoke?.(returnEvent);
-
-    // if complete callback threw an error, rethrow it. we need
-    // this check to make sure the adapter is called before throwing.
-    if (completeCallbackError) {
-      throw completeCallbackError;
-    }
-
     return returnEvent;
   }
 };
@@ -156,4 +151,5 @@ export const createDomainEvent = <T extends IDomainEvent>({
   params,
   state: {},
   errors: [],
+  metadata: {},
 });
