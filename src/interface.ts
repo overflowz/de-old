@@ -5,16 +5,49 @@ type DeepReadonlyObject<T> = {
 };
 
 export interface IDomainEvent<P extends object = object, S extends object = object> {
+  /**
+   * id of the event
+   */
   readonly id: string;
+  /**
+   * parent of the event
+   */
   readonly parent: this['id'] | null;
+  /**
+   * type of the event
+   */
   readonly type: string;
+  /**
+   * when the event was created
+   */
   readonly createdAt: number;
+  /**
+   * when the event was initiated
+   */
   readonly initiatedAt: number | null;
+  /**
+   * when the event was executed
+   */
   readonly executedAt: number | null;
+  /**
+   * when the event was completed
+   */
   readonly completedAt: number | null;
+  /**
+   * parameters required for the event
+   */
   readonly params: DeepReadonly<P>;
+  /**
+   * state returned by the event
+   */
   readonly state: DeepReadonly<S>;
+  /**
+   * if there were any errors in the event
+   */
   readonly errors: DeepReadonly<Error[]>;
+  /**
+   * custom metadata to attach (can be modified from the hooks)
+   */
   readonly metadata: DeepReadonly<Record<string, any>>;
 }
 
