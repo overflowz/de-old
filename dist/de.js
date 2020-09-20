@@ -38,13 +38,13 @@ class DomainEvents {
     initiateEvent(event, handler) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            return (yield ((_a = handler.initiate) === null || _a === void 0 ? void 0 : _a.call(handler, event))) || [];
+            return ((yield ((_a = handler.initiate) === null || _a === void 0 ? void 0 : _a.call(handler, event))) || []);
         });
     }
     executeEvent(event, events, handler) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            return (yield ((_a = handler.execute) === null || _a === void 0 ? void 0 : _a.call(handler, event, events))) || [];
+            return ((yield ((_a = handler.execute) === null || _a === void 0 ? void 0 : _a.call(handler, event, events))) || []);
         });
     }
     completeEvent(event, events, handler) {
