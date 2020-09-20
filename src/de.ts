@@ -2,7 +2,7 @@ import * as uuid from 'uuid';
 
 import {
   CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
-  IDomainHandler,
+  IDomainHandler, DeepReadonly,
 } from './interface';
 
 export class DomainEvents {
@@ -11,11 +11,11 @@ export class DomainEvents {
   private readonly eventMap: Map<IDomainEvent['type'], IDomainHandler<any>[]> = new Map();
 
   private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
-    return await handler.initiate?.(event) || [];
+    return (await handler.initiate?.(event) || []) as T[];
   }
 
   private async executeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
-    return await handler.execute?.(event, events) || [];
+    return (await handler.execute?.(event, events) || []) as T[];
   }
 
   private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<T['state'] | void> {
@@ -50,7 +50,7 @@ export class DomainEvents {
       parent: parent ?? null,
     };
 
-    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent) || returnEvent;
+    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) || returnEvent;
 
     for (const [eventType, handlers] of this.eventMap.entries()) {
       if (eventType === event.type) {
@@ -58,7 +58,7 @@ export class DomainEvents {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
 
-          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent) || returnEvent;
+          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) || returnEvent;
 
           returnEvent = {
             ...returnEvent,
@@ -78,10 +78,10 @@ export class DomainEvents {
             initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
-          await this.hooks?.afterInitiate?.(returnEvent);
+          await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
 
           if (!returnEvent.errors.length) {
-            returnEvent = await this.hooks?.beforeExecute?.(returnEvent) || returnEvent;
+            returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) || returnEvent;
 
             returnEvent = {
               ...returnEvent,
@@ -102,8 +102,8 @@ export class DomainEvents {
             executeChildEvents.map((event) => this.invoke(event, returnEvent.id)),
           );
 
-          await this.hooks?.afterExecute?.(returnEvent);
-          returnEvent = await this.hooks?.beforeComplete?.(returnEvent) || returnEvent;
+          await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);
+          returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) || returnEvent;
 
           returnEvent = {
             ...returnEvent,
@@ -121,18 +121,18 @@ export class DomainEvents {
               errors: [...returnEvent.errors ?? [], err],
             };
 
-            await this.hooks?.afterComplete?.(returnEvent);
-            await this.hooks?.afterInvoke?.(returnEvent);
+            await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+            await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
 
             throw err;
           }
         }
 
-        await this.hooks?.afterComplete?.(returnEvent);
+        await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
       }
     }
 
-    await this.hooks?.afterInvoke?.(returnEvent);
+    await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
     return returnEvent;
   }
 };
