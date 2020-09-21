@@ -2,23 +2,23 @@ import * as uuid from 'uuid';
 
 import {
   CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
-  IDomainHandler, DeepReadonly,
+  IDomainEventHandler, DeepReadonly,
 } from './interface';
 
 export class DomainEvents {
   constructor(private readonly hooks?: IDomainEventHooks) { }
 
-  private readonly eventMap: Map<IDomainEvent['type'], IDomainHandler<any>[]> = new Map();
+  private readonly eventMap: Map<IDomainEvent['type'], IDomainEventHandler<any>[]> = new Map();
 
-  private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
+  private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
     return (await handler.initiate?.(event) || []) as T[];
   }
 
-  private async executeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<IDomainEvent[]> {
+  private async executeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
     return (await handler.execute?.(event, events) || []) as T[];
   }
 
-  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainHandler<T>): Promise<T['state'] | void> {
+  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<T['state'] | void> {
     if (typeof handler.complete === 'function') {
       return handler.complete(event, events) ?? event.state;
     }
@@ -26,7 +26,7 @@ export class DomainEvents {
     return event.state;
   }
 
-  public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void {
+  public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainEventHandler<T>): void {
     const handlers = this.eventMap.get(eventType) ?? [];
 
     if (!handlers.includes(handler)) {
@@ -36,7 +36,7 @@ export class DomainEvents {
     this.eventMap.set(eventType, handlers);
   }
 
-  public off<T extends IDomainEvent>(eventType: T['type'], handler: IDomainHandler<T>): void {
+  public off<T extends IDomainEvent>(eventType: T['type'], handler: IDomainEventHandler<T>): void {
     const handlers = this.eventMap.get(eventType) ?? [];
 
     if (handlers.includes(handler)) {
