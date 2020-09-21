@@ -56,12 +56,12 @@ export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof 
 export type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params'>;
 
 type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
-// type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
+type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 
 export interface IDomainEventHandler<T extends IDomainEvent> {
   initiate?: (event: T) => ActionReturnType;
   execute?: (event: T, children: readonly IDomainEvent[]) => ActionReturnType;
-  complete?: (event: T, children: readonly IDomainEvent[]) => T extends IDomainEvent<infer _P, infer S> ? (S | void | Promise<S | void>) : never;
+  complete?: (event: T, children: readonly IDomainEvent[]) => CompleteReturnType<T>;
 }
 
 export interface IDomainEventHooks {
