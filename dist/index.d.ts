@@ -1,2 +1,2 @@
 export * from './de';
-export { IDomainEvent, IDomainEventHooks, IDomainHandler } from './interface';
+export { IDomainEvent, IDomainEventHooks, IDomainEventHandler } from './interface';
