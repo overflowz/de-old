@@ -39,9 +39,9 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
    */
   readonly params: DeepReadonly<P>;
   /**
-   * state returned by the event
+   * state management for the event
    */
-  readonly state: DeepReadonly<S>;
+  state: DeepReadonly<S>;
   /**
    * if there were any errors in the event
    */
