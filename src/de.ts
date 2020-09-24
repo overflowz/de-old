@@ -50,7 +50,7 @@ export class DomainEvents {
       parent: parent ?? null,
     };
 
-    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) || returnEvent;
+    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
     for (const [eventType, handlers] of this.eventMap.entries()) {
       if (eventType === event.type) {
@@ -58,7 +58,7 @@ export class DomainEvents {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
 
-          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) || returnEvent;
+          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
           returnEvent = {
             ...returnEvent,
@@ -81,7 +81,7 @@ export class DomainEvents {
           await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
 
           if (!returnEvent.errors.length) {
-            returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) || returnEvent;
+            returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
             returnEvent = {
               ...returnEvent,
@@ -103,7 +103,7 @@ export class DomainEvents {
           );
 
           await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);
-          returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) || returnEvent;
+          returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
           returnEvent = {
             ...returnEvent,
