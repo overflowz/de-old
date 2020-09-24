@@ -59,12 +59,12 @@ export interface IDomainEventHandler<T extends IDomainEvent> {
     complete?: (event: T, children: readonly IDomainEvent[]) => CompleteReturnType<T>;
 }
 export interface IDomainEventHooks {
-    beforeInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | T | Promise<T>;
-    beforeInitiate?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | T | Promise<T>;
+    beforeInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;
+    beforeInitiate?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;
     afterInitiate?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
-    beforeExecute?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | T | Promise<T>;
+    beforeExecute?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;
     afterExecute?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
-    beforeComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | T | Promise<T>;
+    beforeComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;
     afterComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
     afterInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
 }
