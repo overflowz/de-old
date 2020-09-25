@@ -45,12 +45,12 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
      */
     readonly errors: DeepReadonly<Error[]>;
     /**
-     * custom metadata (can be modified from the hooks)
+     * custom metadata
      */
     readonly metadata: DeepReadonly<Record<string, any>>;
 }
-export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
-export declare type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params'>;
+export declare type CreateDomainEventArgs<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params'> & Partial<Pick<T, 'metadata'>>;
+export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params' | 'state' | 'metadata'> & Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
 declare type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 declare type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 export interface IDomainEventHandler<T extends IDomainEvent> {

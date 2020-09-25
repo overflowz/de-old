@@ -125,7 +125,7 @@ class DomainEvents {
 }
 exports.DomainEvents = DomainEvents;
 ;
-exports.createDomainEvent = ({ type, params, }) => ({
+exports.createDomainEvent = ({ type, params, metadata, }) => ({
     id: uuid.v4(),
     parent: null,
     createdAt: Date.now(),
@@ -136,5 +136,5 @@ exports.createDomainEvent = ({ type, params, }) => ({
     params,
     state: {},
     errors: [],
-    metadata: {},
+    metadata: metadata !== null && metadata !== void 0 ? metadata : {},
 });
