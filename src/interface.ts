@@ -52,8 +52,14 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   readonly metadata: DeepReadonly<Record<string, any>>;
 }
 
-export type CreateDomainEventReturnType<T extends IDomainEvent> = Pick<T, keyof IDomainEvent>;
-export type CreateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'type' | 'params'>;
+export type CreateDomainEventArgs<T extends IDomainEvent> =
+  Omit<T, keyof IDomainEvent>
+  & Pick<T, 'type' | 'params'> & Partial<Pick<T, 'metadata'>>;
+
+export type CreateDomainEventReturnType<T extends IDomainEvent> =
+  Omit<T, keyof IDomainEvent> &
+  Pick<T, 'type' | 'params' | 'state' | 'metadata'> &
+  Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
 
 type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
