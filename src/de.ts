@@ -2,7 +2,7 @@ import * as uuid from 'uuid';
 
 import {
   CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
-  IDomainEventHandler, DeepReadonly,
+  IDomainEventHandler, DeepReadonly, InvokeOptions
 } from './interface';
 
 export class DomainEvents {
@@ -44,10 +44,14 @@ export class DomainEvents {
     }
   }
 
-  public async invoke<T extends IDomainEvent>(event: T, parent?: T['id']): Promise<T> {
+  public async invoke<T extends IDomainEvent>(event: T, options: InvokeOptions<T>): Promise<T> {
+    if (event.completedAt && !options.retryCompleted) {
+      return event;
+    }
+
     let returnEvent: T = {
       ...event,
-      parent: parent ?? null,
+      parent: options.parent ?? null,
     };
 
     returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
@@ -75,7 +79,7 @@ export class DomainEvents {
           }
 
           const initiateChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)),
+            initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })),
           );
 
           await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
@@ -99,7 +103,7 @@ export class DomainEvents {
           }
 
           const executeChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            executeChildEvents.map((event) => this.invoke(event, returnEvent.id)),
+            executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })),
           );
 
           await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);

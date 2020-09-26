@@ -61,6 +61,11 @@ export type CreateDomainEventReturnType<T extends IDomainEvent> =
   Pick<T, 'type' | 'params' | 'state' | 'metadata'> &
   Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
 
+export type InvokeOptions<T extends IDomainEvent> = {
+  parent?: T['id'] | null;
+  retryCompleted?: boolean;
+};
+
 type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 
