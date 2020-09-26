@@ -71,54 +71,57 @@ class DomainEvents {
             this.eventMap.set(eventType, handlers.filter(f => f !== handler));
         }
     }
-    invoke(event, parent) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
+    invoke(event, options) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
         return __awaiter(this, void 0, void 0, function* () {
-            let returnEvent = Object.assign(Object.assign({}, event), { parent: parent !== null && parent !== void 0 ? parent : null });
-            returnEvent = (yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, returnEvent))) || returnEvent;
+            if (event.completedAt && !options.retryCompleted) {
+                return event;
+            }
+            let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options.parent) !== null && _a !== void 0 ? _a : null });
+            returnEvent = (yield ((_c = (_b = this.hooks) === null || _b === void 0 ? void 0 : _b.beforeInvoke) === null || _c === void 0 ? void 0 : _c.call(_b, returnEvent))) || returnEvent;
             for (const [eventType, handlers] of this.eventMap.entries()) {
                 if (eventType === event.type) {
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
-                        returnEvent = (yield ((_d = (_c = this.hooks) === null || _c === void 0 ? void 0 : _c.beforeInitiate) === null || _d === void 0 ? void 0 : _d.call(_c, returnEvent))) || returnEvent;
+                        returnEvent = (yield ((_e = (_d = this.hooks) === null || _d === void 0 ? void 0 : _d.beforeInitiate) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent))) || returnEvent;
                         returnEvent = Object.assign(Object.assign({}, returnEvent), { initiatedAt: Date.now() });
                         try {
                             initiateChildEvents = yield this.initiateEvent(returnEvent, handler);
                         }
                         catch (err) {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_e = returnEvent.errors) !== null && _e !== void 0 ? _e : [], err] });
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_f = returnEvent.errors) !== null && _f !== void 0 ? _f : [], err] });
                         }
-                        const initiateChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(initiateChildEvents.map((event) => this.invoke(event, returnEvent.id)));
-                        yield ((_g = (_f = this.hooks) === null || _f === void 0 ? void 0 : _f.afterInitiate) === null || _g === void 0 ? void 0 : _g.call(_f, returnEvent));
+                        const initiateChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })));
+                        yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
                         if (!returnEvent.errors.length) {
-                            returnEvent = (yield ((_j = (_h = this.hooks) === null || _h === void 0 ? void 0 : _h.beforeExecute) === null || _j === void 0 ? void 0 : _j.call(_h, returnEvent))) || returnEvent;
+                            returnEvent = (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent))) || returnEvent;
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
                             try {
                                 executeChildEvents = yield this.executeEvent(returnEvent, initiateChildEventStates, handler);
                             }
                             catch (err) {
-                                returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_k = returnEvent.errors) !== null && _k !== void 0 ? _k : [], err] });
+                                returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_l = returnEvent.errors) !== null && _l !== void 0 ? _l : [], err] });
                             }
                         }
-                        const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, returnEvent.id)));
-                        yield ((_m = (_l = this.hooks) === null || _l === void 0 ? void 0 : _l.afterExecute) === null || _m === void 0 ? void 0 : _m.call(_l, returnEvent));
-                        returnEvent = (yield ((_p = (_o = this.hooks) === null || _o === void 0 ? void 0 : _o.beforeComplete) === null || _p === void 0 ? void 0 : _p.call(_o, returnEvent))) || returnEvent;
+                        const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })));
+                        yield ((_o = (_m = this.hooks) === null || _m === void 0 ? void 0 : _m.afterExecute) === null || _o === void 0 ? void 0 : _o.call(_m, returnEvent));
+                        returnEvent = (yield ((_q = (_p = this.hooks) === null || _p === void 0 ? void 0 : _p.beforeComplete) === null || _q === void 0 ? void 0 : _q.call(_p, returnEvent))) || returnEvent;
                         returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
                         try {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { state: yield this.completeEvent(returnEvent, executeChildEventStates, handler) });
                         }
                         catch (err) {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_q = returnEvent.errors) !== null && _q !== void 0 ? _q : [], err] });
-                            yield ((_s = (_r = this.hooks) === null || _r === void 0 ? void 0 : _r.afterComplete) === null || _s === void 0 ? void 0 : _s.call(_r, returnEvent));
-                            yield ((_u = (_t = this.hooks) === null || _t === void 0 ? void 0 : _t.afterInvoke) === null || _u === void 0 ? void 0 : _u.call(_t, returnEvent));
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_r = returnEvent.errors) !== null && _r !== void 0 ? _r : [], err] });
+                            yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
+                            yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
                             throw err;
                         }
                     }
-                    yield ((_w = (_v = this.hooks) === null || _v === void 0 ? void 0 : _v.afterComplete) === null || _w === void 0 ? void 0 : _w.call(_v, returnEvent));
+                    yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
                 }
             }
-            yield ((_y = (_x = this.hooks) === null || _x === void 0 ? void 0 : _x.afterInvoke) === null || _y === void 0 ? void 0 : _y.call(_x, returnEvent));
+            yield ((_z = (_y = this.hooks) === null || _y === void 0 ? void 0 : _y.afterInvoke) === null || _z === void 0 ? void 0 : _z.call(_y, returnEvent));
             return returnEvent;
         });
     }

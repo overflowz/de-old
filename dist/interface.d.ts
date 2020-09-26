@@ -51,6 +51,10 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 }
 export declare type CreateDomainEventArgs<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params'> & Partial<Pick<T, 'metadata'>>;
 export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params' | 'state' | 'metadata'> & Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
+export declare type InvokeOptions<T extends IDomainEvent> = {
+    parent?: T['id'] | null;
+    retryCompleted?: boolean;
+};
 declare type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 declare type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 export interface IDomainEventHandler<T extends IDomainEvent> {
