@@ -44,14 +44,14 @@ export class DomainEvents {
     }
   }
 
-  public async invoke<T extends IDomainEvent>(event: T, options: InvokeOptions<T>): Promise<T> {
-    if (event.completedAt && !options.retryCompleted) {
+  public async invoke<T extends IDomainEvent>(event: T, options?: InvokeOptions<T>): Promise<T> {
+    if (event.completedAt && !options?.retryCompleted) {
       return event;
     }
 
     let returnEvent: T = {
       ...event,
-      parent: options.parent ?? null,
+      parent: options?.parent ?? null,
     };
 
     returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
