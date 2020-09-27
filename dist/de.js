@@ -74,10 +74,10 @@ class DomainEvents {
     invoke(event, options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
         return __awaiter(this, void 0, void 0, function* () {
-            if (event.completedAt && !options.retryCompleted) {
+            if (event.completedAt && !(options === null || options === void 0 ? void 0 : options.retryCompleted)) {
                 return event;
             }
-            let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options.parent) !== null && _a !== void 0 ? _a : null });
+            let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options === null || options === void 0 ? void 0 : options.parent) !== null && _a !== void 0 ? _a : null });
             returnEvent = (yield ((_c = (_b = this.hooks) === null || _b === void 0 ? void 0 : _b.beforeInvoke) === null || _c === void 0 ? void 0 : _c.call(_b, returnEvent))) || returnEvent;
             for (const [eventType, handlers] of this.eventMap.entries()) {
                 if (eventType === event.type) {
