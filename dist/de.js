@@ -51,7 +51,7 @@ class DomainEvents {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             if (typeof handler.complete === 'function') {
-                return (_a = handler.complete(event, events)) !== null && _a !== void 0 ? _a : event.state;
+                return (_a = (yield handler.complete(event, events))) !== null && _a !== void 0 ? _a : event.state;
             }
             return event.state;
         });
@@ -59,6 +59,10 @@ class DomainEvents {
     on(eventType, handler) {
         var _a;
         const handlers = (_a = this.eventMap.get(eventType)) !== null && _a !== void 0 ? _a : [];
+        const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
+        if (hasNonMiddlewareHandler && !handler.isMiddleware) {
+            throw new Error('cannot have more than one non-middleware handler');
+        }
         if (!handlers.includes(handler)) {
             handlers.push(handler);
         }
@@ -84,8 +88,10 @@ class DomainEvents {
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
-                        returnEvent = (yield ((_e = (_d = this.hooks) === null || _d === void 0 ? void 0 : _d.beforeInitiate) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent))) || returnEvent;
-                        returnEvent = Object.assign(Object.assign({}, returnEvent), { initiatedAt: Date.now() });
+                        returnEvent = handler.isMiddleware
+                            ? returnEvent
+                            : (yield ((_e = (_d = this.hooks) === null || _d === void 0 ? void 0 : _d.beforeInitiate) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent))) || returnEvent;
+                        returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { initiatedAt: Date.now() }));
                         try {
                             initiateChildEvents = yield this.initiateEvent(returnEvent, handler);
                         }
@@ -93,10 +99,14 @@ class DomainEvents {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_f = returnEvent.errors) !== null && _f !== void 0 ? _f : [], err] });
                         }
                         const initiateChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })));
-                        yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
+                        if (!handler.isMiddleware) {
+                            yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
+                        }
                         if (!returnEvent.errors.length) {
-                            returnEvent = (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent))) || returnEvent;
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { executedAt: Date.now() });
+                            returnEvent = handler.isMiddleware
+                                ? returnEvent
+                                : (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent))) || returnEvent;
+                            returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { executedAt: Date.now() }));
                             try {
                                 executeChildEvents = yield this.executeEvent(returnEvent, initiateChildEventStates, handler);
                             }
@@ -105,20 +115,26 @@ class DomainEvents {
                             }
                         }
                         const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })));
-                        yield ((_o = (_m = this.hooks) === null || _m === void 0 ? void 0 : _m.afterExecute) === null || _o === void 0 ? void 0 : _o.call(_m, returnEvent));
-                        returnEvent = (yield ((_q = (_p = this.hooks) === null || _p === void 0 ? void 0 : _p.beforeComplete) === null || _q === void 0 ? void 0 : _q.call(_p, returnEvent))) || returnEvent;
-                        returnEvent = Object.assign(Object.assign({}, returnEvent), { completedAt: Date.now() });
+                        if (!handler.isMiddleware) {
+                            yield ((_o = (_m = this.hooks) === null || _m === void 0 ? void 0 : _m.afterExecute) === null || _o === void 0 ? void 0 : _o.call(_m, returnEvent));
+                            returnEvent = (yield ((_q = (_p = this.hooks) === null || _p === void 0 ? void 0 : _p.beforeComplete) === null || _q === void 0 ? void 0 : _q.call(_p, returnEvent))) || returnEvent;
+                        }
+                        returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { completedAt: Date.now() }));
                         try {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { state: yield this.completeEvent(returnEvent, executeChildEventStates, handler) });
                         }
                         catch (err) {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_r = returnEvent.errors) !== null && _r !== void 0 ? _r : [], err] });
-                            yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
+                            if (!handler.isMiddleware) {
+                                yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
+                            }
                             yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
                             throw err;
                         }
+                        if (handler.isMiddleware) {
+                            yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
+                        }
                     }
-                    yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
                 }
             }
             yield ((_z = (_y = this.hooks) === null || _y === void 0 ? void 0 : _y.afterInvoke) === null || _z === void 0 ? void 0 : _z.call(_y, returnEvent));

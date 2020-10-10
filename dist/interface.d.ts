@@ -58,6 +58,7 @@ export declare type InvokeOptions<T extends IDomainEvent> = {
 declare type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 declare type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 export interface IDomainEventHandler<T extends IDomainEvent> {
+    readonly isMiddleware?: boolean;
     initiate?: (event: T) => ActionReturnType;
     execute?: (event: T, children: readonly IDomainEvent[]) => ActionReturnType;
     complete?: (event: T, children: readonly IDomainEvent[]) => CompleteReturnType<T>;
