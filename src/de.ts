@@ -20,7 +20,7 @@ export class DomainEvents {
 
   private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<T['state'] | void> {
     if (typeof handler.complete === 'function') {
-      return handler.complete(event, events) ?? event.state;
+      return (await handler.complete(event, events)) ?? event.state;
     }
 
     return event.state;
@@ -28,6 +28,11 @@ export class DomainEvents {
 
   public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainEventHandler<T>): void {
     const handlers = this.eventMap.get(eventType) ?? [];
+    const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
+
+    if (hasNonMiddlewareHandler && !handler.isMiddleware) {
+      throw new Error('cannot have more than one non-middleware handler');
+    }
 
     if (!handlers.includes(handler)) {
       handlers.push(handler);
@@ -62,11 +67,13 @@ export class DomainEvents {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
 
-          returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+          returnEvent = handler.isMiddleware
+            ? returnEvent
+            : await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
           returnEvent = {
             ...returnEvent,
-            initiatedAt: Date.now(),
+            ...(handler.isMiddleware ? null : { initiatedAt: Date.now() }),
           };
 
           try {
@@ -82,14 +89,18 @@ export class DomainEvents {
             initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })),
           );
 
-          await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
+          if (!handler.isMiddleware) {
+            await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
+          }
 
           if (!returnEvent.errors.length) {
-            returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+            returnEvent = handler.isMiddleware
+              ? returnEvent
+              : await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
             returnEvent = {
               ...returnEvent,
-              executedAt: Date.now(),
+              ...(handler.isMiddleware ? null : { executedAt: Date.now() }),
             };
 
             try {
@@ -106,12 +117,14 @@ export class DomainEvents {
             executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })),
           );
 
-          await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);
-          returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+          if (!handler.isMiddleware) {
+            await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);
+            returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+          }
 
           returnEvent = {
             ...returnEvent,
-            completedAt: Date.now(),
+            ...(handler.isMiddleware ? null : { completedAt: Date.now() }),
           };
 
           try {
@@ -125,14 +138,18 @@ export class DomainEvents {
               errors: [...returnEvent.errors ?? [], err],
             };
 
-            await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
-            await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
+            if (!handler.isMiddleware) {
+              await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+            }
 
+            await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
             throw err;
           }
-        }
 
-        await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+          if (handler.isMiddleware) {
+            await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+          }
+        }
       }
     }
 
