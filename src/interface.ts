@@ -70,7 +70,7 @@ type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly
 type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
 
 export interface IDomainEventHandler<T extends IDomainEvent> {
-  isMiddleare?: boolean;
+  isMiddleware?: boolean;
   initiate?: (event: T) => ActionReturnType;
   execute?: (event: T, children: readonly IDomainEvent[]) => ActionReturnType;
   complete?: (event: T, children: readonly IDomainEvent[]) => CompleteReturnType<T>;
