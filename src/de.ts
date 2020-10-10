@@ -20,7 +20,7 @@ export class DomainEvents {
 
   private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<T['state'] | void> {
     if (typeof handler.complete === 'function') {
-      return handler.complete(event, events) ?? event.state;
+      return (await handler.complete(event, events)) ?? event.state;
     }
 
     return event.state;
