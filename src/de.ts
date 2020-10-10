@@ -138,11 +138,11 @@ export class DomainEvents {
               errors: [...returnEvent.errors ?? [], err],
             };
 
-            if (handler.isMiddleare) {
+            if (!handler.isMiddleare) {
               await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
-              await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
             }
 
+            await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
             throw err;
           }
 
