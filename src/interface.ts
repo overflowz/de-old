@@ -13,7 +13,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   /**
    * parent of the event
    */
-  readonly parent: this['id'] | null;
+  readonly parent: string | null;
   /**
    * type of the event
    */
