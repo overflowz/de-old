@@ -86,3 +86,5 @@ export interface IDomainEventHooks {
   afterComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
   afterInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void>;
 }
+
+export type EventCallback<T extends IDomainEvent> = (value: T) => void;

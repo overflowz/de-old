@@ -1,14 +1,15 @@
-import * as uuid from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
   CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
-  IDomainEventHandler, DeepReadonly, InvokeOptions
+  IDomainEventHandler, DeepReadonly, InvokeOptions, EventCallback,
 } from './interface';
 
 export class DomainEvents {
   constructor(private readonly hooks?: IDomainEventHooks) { }
 
-  private readonly eventMap: Map<IDomainEvent['type'], IDomainEventHandler<any>[]> = new Map();
+  private readonly handlerMap: Map<IDomainEvent['type'], IDomainEventHandler<any>[]> = new Map();
+  private readonly eventMap: Map<IDomainEvent['type'], EventCallback<any>[]> = new Map();
 
   private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
     return (await handler.initiate?.(event) || []) as T[];
@@ -26,8 +27,8 @@ export class DomainEvents {
     return event.state;
   }
 
-  public on<T extends IDomainEvent>(eventType: T['type'], handler: IDomainEventHandler<T>): void {
-    const handlers = this.eventMap.get(eventType) ?? [];
+  public registerHandler<T extends IDomainEvent>(type: T['type'], handler: IDomainEventHandler<T>): void {
+    const handlers = this.handlerMap.get(type) ?? [];
     const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
 
     if (hasNonMiddlewareHandler && !handler.isMiddleware) {
@@ -38,14 +39,29 @@ export class DomainEvents {
       handlers.push(handler);
     }
 
-    this.eventMap.set(eventType, handlers);
+    this.handlerMap.set(type, handlers);
   }
 
-  public off<T extends IDomainEvent>(eventType: T['type'], handler: IDomainEventHandler<T>): void {
-    const handlers = this.eventMap.get(eventType) ?? [];
+  public on<T extends IDomainEvent>(type: T['type'], callback: EventCallback<T>): void {
+    const callbacks = this.eventMap.get(type) || [];
 
-    if (handlers.includes(handler)) {
-      this.eventMap.set(eventType, handlers.filter(f => f !== handler));
+    if (callbacks.includes(callback)) {
+      return;
+    }
+
+    callbacks.push(callback);
+    this.eventMap.set(type, callbacks);
+  }
+
+  public off<T extends IDomainEvent>(type: T['type'], callback?: EventCallback<T>): void {
+    if (!callback) {
+      this.eventMap.delete(type);
+      return;
+    }
+
+    const callbacks = this.eventMap.get(type) ?? [];
+    if (callbacks.some(s => s === callback)) {
+      this.eventMap.set(type, callbacks.filter(f => f !== callback));
     }
   }
 
@@ -61,8 +77,8 @@ export class DomainEvents {
 
     returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
-    for (const [eventType, handlers] of this.eventMap.entries()) {
-      if (eventType === event.type) {
+    for (const [type, handlers] of this.handlerMap.entries()) {
+      if (type === event.type) {
         for (const handler of handlers) {
           let initiateChildEvents: IDomainEvent[] = [];
           let executeChildEvents: IDomainEvent[] = [];
@@ -146,8 +162,17 @@ export class DomainEvents {
             throw err;
           }
 
-          if (handler.isMiddleware) {
+          if (!handler.isMiddleware) {
             await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+
+            // call event listeners
+            this.eventMap
+              .get(event.type)
+              ?.map((callback) => {
+                try {
+                  callback(returnEvent);
+                } finally { }
+              });
           }
         }
       }
@@ -163,7 +188,7 @@ export const createDomainEvent = <T extends IDomainEvent>({
   params,
   metadata,
 }: CreateDomainEventArgs<T>): CreateDomainEventReturnType<T> => ({
-  id: uuid.v4(),
+  id: uuidv4(),
   parent: null,
   createdAt: Date.now(),
   initiatedAt: null,
