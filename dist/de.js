@@ -1,23 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -29,10 +10,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createDomainEvent = exports.DomainEvents = void 0;
-const uuid = __importStar(require("uuid"));
+const uuid_1 = require("uuid");
 class DomainEvents {
     constructor(hooks) {
         this.hooks = hooks;
+        this.handlerMap = new Map();
         this.eventMap = new Map();
     }
     initiateEvent(event, handler) {
@@ -56,9 +38,9 @@ class DomainEvents {
             return event.state;
         });
     }
-    on(eventType, handler) {
+    registerHandler(type, handler) {
         var _a;
-        const handlers = (_a = this.eventMap.get(eventType)) !== null && _a !== void 0 ? _a : [];
+        const handlers = (_a = this.handlerMap.get(type)) !== null && _a !== void 0 ? _a : [];
         const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
         if (hasNonMiddlewareHandler && !handler.isMiddleware) {
             throw new Error('cannot have more than one non-middleware handler');
@@ -66,25 +48,37 @@ class DomainEvents {
         if (!handlers.includes(handler)) {
             handlers.push(handler);
         }
-        this.eventMap.set(eventType, handlers);
+        this.handlerMap.set(type, handlers);
     }
-    off(eventType, handler) {
+    on(type, callback) {
+        const callbacks = this.eventMap.get(type) || [];
+        if (callbacks.includes(callback)) {
+            return;
+        }
+        callbacks.push(callback);
+        this.eventMap.set(type, callbacks);
+    }
+    off(type, callback) {
         var _a;
-        const handlers = (_a = this.eventMap.get(eventType)) !== null && _a !== void 0 ? _a : [];
-        if (handlers.includes(handler)) {
-            this.eventMap.set(eventType, handlers.filter(f => f !== handler));
+        if (!callback) {
+            this.eventMap.delete(type);
+            return;
+        }
+        const callbacks = (_a = this.eventMap.get(type)) !== null && _a !== void 0 ? _a : [];
+        if (callbacks.some(s => s === callback)) {
+            this.eventMap.set(type, callbacks.filter(f => f !== callback));
         }
     }
     invoke(event, options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0;
         return __awaiter(this, void 0, void 0, function* () {
             if (event.completedAt && !(options === null || options === void 0 ? void 0 : options.retryCompleted)) {
                 return event;
             }
             let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options === null || options === void 0 ? void 0 : options.parent) !== null && _a !== void 0 ? _a : null });
             returnEvent = (yield ((_c = (_b = this.hooks) === null || _b === void 0 ? void 0 : _b.beforeInvoke) === null || _c === void 0 ? void 0 : _c.call(_b, returnEvent))) || returnEvent;
-            for (const [eventType, handlers] of this.eventMap.entries()) {
-                if (eventType === event.type) {
+            for (const [type, handlers] of this.handlerMap.entries()) {
+                if (type === event.type) {
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
@@ -131,13 +125,21 @@ class DomainEvents {
                             yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
                             throw err;
                         }
-                        if (handler.isMiddleware) {
+                        if (!handler.isMiddleware) {
                             yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
+                            // call event listeners
+                            (_y = this.eventMap
+                                .get(event.type)) === null || _y === void 0 ? void 0 : _y.map((callback) => {
+                                try {
+                                    callback(returnEvent);
+                                }
+                                finally { }
+                            });
                         }
                     }
                 }
             }
-            yield ((_z = (_y = this.hooks) === null || _y === void 0 ? void 0 : _y.afterInvoke) === null || _z === void 0 ? void 0 : _z.call(_y, returnEvent));
+            yield ((_0 = (_z = this.hooks) === null || _z === void 0 ? void 0 : _z.afterInvoke) === null || _0 === void 0 ? void 0 : _0.call(_z, returnEvent));
             return returnEvent;
         });
     }
@@ -145,7 +147,7 @@ class DomainEvents {
 exports.DomainEvents = DomainEvents;
 ;
 exports.createDomainEvent = ({ type, params, metadata, }) => ({
-    id: uuid.v4(),
+    id: uuid_1.v4(),
     parent: null,
     createdAt: Date.now(),
     initiatedAt: null,
