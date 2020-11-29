@@ -19,12 +19,8 @@ export class DomainEvents {
     return (await handler.execute?.(event, events) || []) as T[];
   }
 
-  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<T['state'] | void> {
-    if (typeof handler.complete === 'function') {
-      return (await handler.complete(event, events)) ?? event.state;
-    }
-
-    return event.state;
+  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
+    return (await handler.complete?.(event, events) || []) as T[];
   }
 
   public registerHandler<T extends IDomainEvent>(action: T['action'], handler: IDomainEventHandler<T>): void {
@@ -144,22 +140,25 @@ export class DomainEvents {
           };
 
           try {
-            returnEvent = {
-              ...returnEvent,
-              state: await this.completeEvent<T>(returnEvent, executeChildEventStates, handler),
-            };
+            const completeChildEvents = await this.completeEvent<T>(returnEvent, executeChildEventStates, handler);
+
+            await Promise.all(
+              completeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id }))
+            );
           } catch (err) {
             returnEvent = {
               ...returnEvent,
               errors: [...returnEvent.errors ?? [], err],
             };
 
-            if (!handler.isMiddleware) {
-              await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
-            }
+            if (!returnEvent.parent) {
+              if (!handler.isMiddleware) {
+                await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
+              }
 
-            await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
-            throw err;
+              await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
+              throw err;
+            }
           }
 
           if (!handler.isMiddleware) {
