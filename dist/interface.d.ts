@@ -15,7 +15,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
     /**
      * type of the event
      */
-    readonly type: string;
+    readonly action: string;
     /**
      * when the event was created
      */
@@ -49,19 +49,18 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
      */
     readonly metadata: DeepReadonly<Record<string, any>>;
 }
-export declare type CreateDomainEventArgs<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params'> & Partial<Pick<T, 'metadata'>>;
-export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'type' | 'params' | 'state' | 'metadata'> & Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
+export declare type CreateDomainEventArgs<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'action' | 'params'> & Partial<Pick<T, 'metadata'>>;
+export declare type CreateDomainEventReturnType<T extends IDomainEvent> = Omit<T, keyof IDomainEvent> & Pick<T, 'action' | 'params' | 'state' | 'metadata'> & Omit<IDomainEvent, 'action' | 'params' | 'state' | 'metadata'>;
 export declare type InvokeOptions<T extends IDomainEvent> = {
     parent?: T['id'] | null;
     retryCompleted?: boolean;
 };
-declare type ActionReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
-declare type CompleteReturnType<T extends IDomainEvent> = T['state'] | void | Promise<void | T['state']>;
+declare type PhaseReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 export interface IDomainEventHandler<T extends IDomainEvent> {
     readonly isMiddleware?: boolean;
-    initiate?: (event: T) => ActionReturnType;
-    execute?: (event: T, children: readonly IDomainEvent[]) => ActionReturnType;
-    complete?: (event: T, children: readonly IDomainEvent[]) => CompleteReturnType<T>;
+    initiate?: (event: T) => PhaseReturnType;
+    execute?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
+    complete?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
 }
 export interface IDomainEventHooks {
     beforeInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;

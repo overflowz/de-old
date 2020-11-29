@@ -15,7 +15,7 @@ class DomainEvents {
     constructor(hooks) {
         this.hooks = hooks;
         this.handlerMap = new Map();
-        this.eventMap = new Map();
+        this.actionMap = new Map();
     }
     initiateEvent(event, handler) {
         var _a;
@@ -32,15 +32,12 @@ class DomainEvents {
     completeEvent(event, events, handler) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            if (typeof handler.complete === 'function') {
-                return (_a = (yield handler.complete(event, events))) !== null && _a !== void 0 ? _a : event.state;
-            }
-            return event.state;
+            return ((yield ((_a = handler.complete) === null || _a === void 0 ? void 0 : _a.call(handler, event, events))) || []);
         });
     }
-    registerHandler(type, handler) {
+    registerHandler(action, handler) {
         var _a;
-        const handlers = (_a = this.handlerMap.get(type)) !== null && _a !== void 0 ? _a : [];
+        const handlers = (_a = this.handlerMap.get(action)) !== null && _a !== void 0 ? _a : [];
         const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
         if (hasNonMiddlewareHandler && !handler.isMiddleware) {
             throw new Error('cannot have more than one non-middleware handler');
@@ -48,25 +45,25 @@ class DomainEvents {
         if (!handlers.includes(handler)) {
             handlers.push(handler);
         }
-        this.handlerMap.set(type, handlers);
+        this.handlerMap.set(action, handlers);
     }
-    on(type, callback) {
-        const callbacks = this.eventMap.get(type) || [];
+    on(action, callback) {
+        const callbacks = this.actionMap.get(action) || [];
         if (callbacks.includes(callback)) {
             return;
         }
         callbacks.push(callback);
-        this.eventMap.set(type, callbacks);
+        this.actionMap.set(action, callbacks);
     }
-    off(type, callback) {
+    off(action, callback) {
         var _a;
         if (!callback) {
-            this.eventMap.delete(type);
+            this.actionMap.delete(action);
             return;
         }
-        const callbacks = (_a = this.eventMap.get(type)) !== null && _a !== void 0 ? _a : [];
+        const callbacks = (_a = this.actionMap.get(action)) !== null && _a !== void 0 ? _a : [];
         if (callbacks.some(s => s === callback)) {
-            this.eventMap.set(type, callbacks.filter(f => f !== callback));
+            this.actionMap.set(action, callbacks.filter(f => f !== callback));
         }
     }
     invoke(event, options) {
@@ -77,8 +74,8 @@ class DomainEvents {
             }
             let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options === null || options === void 0 ? void 0 : options.parent) !== null && _a !== void 0 ? _a : null });
             returnEvent = (yield ((_c = (_b = this.hooks) === null || _b === void 0 ? void 0 : _b.beforeInvoke) === null || _c === void 0 ? void 0 : _c.call(_b, returnEvent))) || returnEvent;
-            for (const [type, handlers] of this.handlerMap.entries()) {
-                if (type === event.type) {
+            for (const [action, handlers] of this.handlerMap.entries()) {
+                if (action === event.action) {
                     for (const handler of handlers) {
                         let initiateChildEvents = [];
                         let executeChildEvents = [];
@@ -115,21 +112,24 @@ class DomainEvents {
                         }
                         returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { completedAt: Date.now() }));
                         try {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { state: yield this.completeEvent(returnEvent, executeChildEventStates, handler) });
+                            const completeChildEvents = yield this.completeEvent(returnEvent, executeChildEventStates, handler);
+                            yield Promise.all(completeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })));
                         }
                         catch (err) {
                             returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_r = returnEvent.errors) !== null && _r !== void 0 ? _r : [], err] });
-                            if (!handler.isMiddleware) {
-                                yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
+                            if (!returnEvent.parent) {
+                                if (!handler.isMiddleware) {
+                                    yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
+                                }
+                                yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
+                                throw err;
                             }
-                            yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
-                            throw err;
                         }
                         if (!handler.isMiddleware) {
                             yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
                             // call event listeners
-                            (_y = this.eventMap
-                                .get(event.type)) === null || _y === void 0 ? void 0 : _y.map((callback) => {
+                            (_y = this.actionMap
+                                .get(event.action)) === null || _y === void 0 ? void 0 : _y.map((callback) => {
                                 try {
                                     callback(returnEvent);
                                 }
@@ -146,14 +146,14 @@ class DomainEvents {
 }
 exports.DomainEvents = DomainEvents;
 ;
-exports.createDomainEvent = ({ type, params, metadata, }) => ({
+exports.createDomainEvent = ({ action, params, metadata, }) => ({
     id: uuid_1.v4(),
     parent: null,
     createdAt: Date.now(),
     initiatedAt: null,
     executedAt: null,
     completedAt: null,
-    type,
+    action,
     params,
     state: {},
     errors: [],
