@@ -17,7 +17,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   /**
    * type of the event
    */
-  readonly type: string;
+  readonly action: string;
   /**
    * when the event was created
    */
@@ -54,12 +54,12 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 
 export type CreateDomainEventArgs<T extends IDomainEvent> =
   Omit<T, keyof IDomainEvent>
-  & Pick<T, 'type' | 'params'> & Partial<Pick<T, 'metadata'>>;
+  & Pick<T, 'action' | 'params'> & Partial<Pick<T, 'metadata'>>;
 
 export type CreateDomainEventReturnType<T extends IDomainEvent> =
   Omit<T, keyof IDomainEvent> &
-  Pick<T, 'type' | 'params' | 'state' | 'metadata'> &
-  Omit<IDomainEvent, 'type' | 'params' | 'state' | 'metadata'>;
+  Pick<T, 'action' | 'params' | 'state' | 'metadata'> &
+  Omit<IDomainEvent, 'action' | 'params' | 'state' | 'metadata'>;
 
 export type InvokeOptions<T extends IDomainEvent> = {
   parent?: T['id'] | null;
