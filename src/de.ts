@@ -9,7 +9,7 @@ export class DomainEvents {
   constructor(private readonly hooks?: IDomainEventHooks) { }
 
   private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
-  private readonly eventMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
+  private readonly actionMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
 
   private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
     return (await handler.initiate?.(event) || []) as T[];
@@ -39,25 +39,25 @@ export class DomainEvents {
   }
 
   public on<T extends IDomainEvent>(action: T['action'], callback: EventCallback<T>): void {
-    const callbacks = this.eventMap.get(action) || [];
+    const callbacks = this.actionMap.get(action) || [];
 
     if (callbacks.includes(callback)) {
       return;
     }
 
     callbacks.push(callback);
-    this.eventMap.set(action, callbacks);
+    this.actionMap.set(action, callbacks);
   }
 
   public off<T extends IDomainEvent>(action: T['action'], callback?: EventCallback<T>): void {
     if (!callback) {
-      this.eventMap.delete(action);
+      this.actionMap.delete(action);
       return;
     }
 
-    const callbacks = this.eventMap.get(action) ?? [];
+    const callbacks = this.actionMap.get(action) ?? [];
     if (callbacks.some(s => s === callback)) {
-      this.eventMap.set(action, callbacks.filter(f => f !== callback));
+      this.actionMap.set(action, callbacks.filter(f => f !== callback));
     }
   }
 
@@ -165,7 +165,7 @@ export class DomainEvents {
             await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
 
             // call event listeners
-            this.eventMap
+            this.actionMap
               .get(event.action)
               ?.map((callback) => {
                 try {
