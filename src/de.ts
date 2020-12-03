@@ -6,8 +6,9 @@ import {
 } from './interface';
 
 export class DomainEvents {
-  constructor(private readonly hooks?: IDomainEventHooks) { }
+  constructor() { }
 
+  private hooks?: IDomainEventHooks;
   private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
   private readonly actionMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
 
@@ -179,6 +180,10 @@ export class DomainEvents {
 
     await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
     return returnEvent;
+  }
+
+  public setupHooks(hooks: IDomainEventHooks) {
+    this.hooks = hooks;
   }
 };
 
