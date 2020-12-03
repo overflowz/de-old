@@ -12,8 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createDomainEvent = exports.DomainEvents = void 0;
 const uuid_1 = require("uuid");
 class DomainEvents {
-    constructor(hooks) {
-        this.hooks = hooks;
+    constructor() {
         this.handlerMap = new Map();
         this.actionMap = new Map();
     }
@@ -142,6 +141,9 @@ class DomainEvents {
             yield ((_0 = (_z = this.hooks) === null || _z === void 0 ? void 0 : _z.afterInvoke) === null || _0 === void 0 ? void 0 : _0.call(_z, returnEvent));
             return returnEvent;
         });
+    }
+    setupHooks(hooks) {
+        this.hooks = hooks;
     }
 }
 exports.DomainEvents = DomainEvents;

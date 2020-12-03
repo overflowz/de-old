@@ -1,7 +1,7 @@
 import { CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks, IDomainEventHandler, InvokeOptions, EventCallback } from './interface';
 export declare class DomainEvents {
-    private readonly hooks?;
-    constructor(hooks?: IDomainEventHooks | undefined);
+    constructor();
+    private hooks?;
     private readonly handlerMap;
     private readonly actionMap;
     private initiateEvent;
@@ -11,5 +11,6 @@ export declare class DomainEvents {
     on<T extends IDomainEvent>(action: T['action'], callback: EventCallback<T>): void;
     off<T extends IDomainEvent>(action: T['action'], callback?: EventCallback<T>): void;
     invoke<T extends IDomainEvent>(event: T, options?: InvokeOptions<T>): Promise<T>;
+    setupHooks(hooks: IDomainEventHooks): void;
 }
 export declare const createDomainEvent: <T extends IDomainEvent<object, object>>({ action, params, metadata, }: CreateDomainEventArgs<T>) => CreateDomainEventReturnType<T>;
