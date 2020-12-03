@@ -1,8 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import {
-  CreateDomainEventArgs, CreateDomainEventReturnType, IDomainEvent, IDomainEventHooks,
-  IDomainEventHandler, DeepReadonly, InvokeOptions, EventCallback,
+  CreateDomainEventArgs,
+  CreateDomainEventReturnType,
+  IDomainEvent,
+  IDomainEventHooks,
+  IDomainEventHandler,
+  DeepReadonly,
+  InvokeOptions,
+  EventCallback,
 } from './interface';
 
 export class DomainEvents {
