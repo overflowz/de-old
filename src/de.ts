@@ -1,212 +1,200 @@
 import { v4 as uuidv4 } from 'uuid';
 
+import tryCatch from './utils/tryCatch';
 import {
-  CreateDomainEventArgs,
-  CreateDomainEventReturnType,
-  IDomainEvent,
-  IDomainEventHooks,
-  IDomainEventHandler,
   DeepReadonly,
-  InvokeOptions,
   EventCallback,
+  EventPhase,
+  EventStatus,
+  GenerateDomainEventArgs,
+  GenerateDomainEventReturnType,
+  IDomainEvent,
+  IDomainEventHandler,
+  IDomainEventHooks,
 } from './interface';
 
 export class DomainEvents {
-  constructor() { }
+  private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>> = new Map();
+  private readonly eventMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
+  private readonly hooks?: IDomainEventHooks;
 
-  private hooks?: IDomainEventHooks;
-  private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
-  private readonly actionMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
+  constructor(hooks?: IDomainEventHooks) {
+    this.generateDomainEvent = this.generateDomainEvent.bind(this);
+    this.handleEvent = this.handleEvent.bind(this);
+    // this.retryEvent = this.retryEvent.bind(this);
+    this.register = this.register.bind(this);
+    this.on = this.on.bind(this);
+    this.off = this.off.bind(this);
 
-  private async initiateEvent<T extends IDomainEvent>(event: T, handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
-    return (await handler.initiate?.(event) || []) as T[];
+    this.hooks = hooks;
   }
 
-  private async executeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
-    return (await handler.execute?.(event, events) || []) as T[];
-  }
-
-  private async completeEvent<T extends IDomainEvent>(event: T, events: IDomainEvent[], handler: IDomainEventHandler<T>): Promise<IDomainEvent[]> {
-    return (await handler.complete?.(event, events) || []) as T[];
-  }
-
-  public registerHandler<T extends IDomainEvent>(action: T['action'], handler: IDomainEventHandler<T>): void {
-    const handlers = this.handlerMap.get(action) ?? [];
-    const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
-
-    if (hasNonMiddlewareHandler && !handler.isMiddleware) {
-      throw new Error('cannot have more than one non-middleware handler');
-    }
-
-    if (!handlers.includes(handler)) {
-      handlers.push(handler);
-    }
-
-    this.handlerMap.set(action, handlers);
+  public generateDomainEvent<T extends IDomainEvent>({ action, params, metadata, state }: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> {
+    return {
+      id: uuidv4(),
+      parent: null,
+      action,
+      phase: EventPhase.INITIATE,
+      status: EventStatus.PENDING,
+      error: null,
+      params: params ?? {},
+      state: state ?? {},
+      metadata: metadata ?? {},
+    };
   }
 
   public on<T extends IDomainEvent>(action: T['action'], callback: EventCallback<T>): void {
-    const callbacks = this.actionMap.get(action) || [];
+    const callbacks = this.eventMap.get(action) ?? [];
 
-    if (callbacks.includes(callback)) {
-      return;
+    if (!callbacks.includes(callback)) {
+      callbacks.push(callback);
+      this.eventMap.set(action, callbacks);
     }
-
-    callbacks.push(callback);
-    this.actionMap.set(action, callbacks);
   }
 
-  public off<T extends IDomainEvent>(action: T['action'], callback?: EventCallback<T>): void {
+  public off<T extends IDomainEvent>(action: T['action'], callback?: EventCallback<T>) {
     if (!callback) {
-      this.actionMap.delete(action);
-      return;
-    }
+      this.eventMap.delete(action);
+    } else {
+      const callbacks = this.eventMap.get(action) ?? [];
 
-    const callbacks = this.actionMap.get(action) ?? [];
-    if (callbacks.some(s => s === callback)) {
-      this.actionMap.set(action, callbacks.filter(f => f !== callback));
+      if (callbacks.some((s: EventCallback<T>) => s === callback)) {
+        this.eventMap.set(action, callbacks.filter((f: EventCallback<T>) => f !== callback));
+      }
     }
   }
 
-  public async invoke<T extends IDomainEvent>(event: T, options?: InvokeOptions<T>): Promise<T> {
-    if (event.completedAt && !options?.retryCompleted) {
-      return event;
+  public register<T extends IDomainEvent>(action: T['action'], handler: IDomainEventHandler<T>) {
+    if (this.handlerMap.has(action)) {
+      throw new Error(`handler is already registered for the ${action} action.`);
     }
 
-    let returnEvent: T = {
-      ...event,
-      parent: options?.parent ?? null,
-    };
+    this.handlerMap.set(action, handler);
+  }
 
-    returnEvent = await this.hooks?.beforeInvoke?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+  public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
+    let returnEvent: T = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
 
-    for (const [action, handlers] of this.handlerMap.entries()) {
-      if (action === event.action) {
-        for (const handler of handlers) {
-          let initiateChildEvents: IDomainEvent[] = [];
-          let executeChildEvents: IDomainEvent[] = [];
+    if (returnEvent.status === EventStatus.COMPLETED) {
+      // return already completed event immediately without handling it.
+      // we dont execute event listeners in this case, because it could've already
+      // fired when the event was completed.
+      return returnEvent;
+    }
 
-          returnEvent = handler.isMiddleware
-            ? returnEvent
-            : await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+    if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
+      // event must be in an INITIATE phase with status of PENDING, otherwise
+      // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
+      throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state and ${EventPhase.INITIATE} phase to proceed.`);
+    }
 
-          returnEvent = {
-            ...returnEvent,
-            ...(handler.isMiddleware ? null : { initiatedAt: Date.now() }),
-          };
+    const handler = this.handlerMap.get(returnEvent.action);
 
-          try {
-            initiateChildEvents = await this.initiateEvent(returnEvent, handler);
-          } catch (err) {
-            returnEvent = {
-              ...returnEvent,
-              errors: [...returnEvent.errors ?? [], err],
-            };
-          }
+    bp: if (typeof handler !== 'undefined') {
+      returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
 
-          const initiateChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })),
-          );
+      // handler found, set status to IN_PROGRESS
+      returnEvent = {
+        ...returnEvent,
+        status: EventStatus.IN_PROGRESS,
+      };
 
-          if (!handler.isMiddleware) {
-            await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
-          }
+      // initiation phase
 
-          if (!returnEvent.errors.length) {
-            returnEvent = handler.isMiddleware
-              ? returnEvent
-              : await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
+      const initiateEvents = await tryCatch(() => handler.initiate?.(returnEvent)) || [];
 
-            returnEvent = {
-              ...returnEvent,
-              ...(handler.isMiddleware ? null : { executedAt: Date.now() }),
-            };
+      if (initiateEvents instanceof Error) {
+        returnEvent = {
+          ...returnEvent,
+          status: EventStatus.FAILED,
+          error: initiateEvents.message,
+        };
 
-            try {
-              executeChildEvents = await this.executeEvent(returnEvent, initiateChildEventStates, handler);
-            } catch (err) {
-              returnEvent = {
-                ...returnEvent,
-                errors: [...returnEvent.errors ?? [], err],
-              };
-            }
-          }
-
-          const executeChildEventStates = returnEvent.errors.length ? [] : await Promise.all(
-            executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })),
-          );
-
-          if (!handler.isMiddleware) {
-            await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>);
-            returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
-          }
-
-          returnEvent = {
-            ...returnEvent,
-            ...(handler.isMiddleware ? null : { completedAt: Date.now() }),
-          };
-
-          try {
-            const completeChildEvents = await this.completeEvent<T>(returnEvent, executeChildEventStates, handler);
-
-            await Promise.all(
-              completeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id }))
-            );
-          } catch (err) {
-            returnEvent = {
-              ...returnEvent,
-              errors: [...returnEvent.errors ?? [], err],
-            };
-
-            if (!returnEvent.parent) {
-              if (!handler.isMiddleware) {
-                await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
-              }
-
-              await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
-              throw err;
-            }
-          }
-
-          if (!handler.isMiddleware) {
-            await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>);
-
-            // call event listeners
-            this.actionMap
-              .get(event.action)
-              ?.map((callback) => {
-                try {
-                  callback(returnEvent);
-                } finally { }
-              });
-          }
-        }
+        await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
+        break bp;
       }
+
+      await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
+
+      // execution phase
+
+      returnEvent = {
+        ...returnEvent,
+        phase: EventPhase.EXECUTE,
+      };
+
+      const initiateEventStates = await Promise.all(
+        initiateEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
+
+      returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates) as T || returnEvent;
+      const executeEvents = await tryCatch(() => handler.execute?.(returnEvent, initiateEventStates)) || [];
+
+      if (executeEvents instanceof Error) {
+        returnEvent = {
+          ...returnEvent,
+          status: EventStatus.FAILED,
+          error: executeEvents.message,
+        };
+
+        await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
+        break bp;
+      }
+
+      await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
+
+      // completion phase
+
+      returnEvent = {
+        ...returnEvent,
+        phase: EventPhase.COMPLETE,
+      };
+
+      const executeEventStates = await Promise.all(
+        executeEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
+
+      returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEventStates) as T || returnEvent;
+      const completeEvents = await tryCatch(() => handler.complete?.(returnEvent, executeEventStates)) || [];
+
+      if (completeEvents instanceof Error) {
+        returnEvent = {
+          ...returnEvent,
+          status: EventStatus.FAILED,
+          error: completeEvents.message,
+        };
+
+        await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
+        break bp;
+      }
+
+      // "fire and forget" events returned from the complete phase
+      Promise.all(
+        completeEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
+
+      // call event listeners
+      this.eventMap.get(returnEvent.action)?.map(
+        (callback: EventCallback<T>) => tryCatch(() => callback(returnEvent)),
+      );
+
+      // mark event as completed
+      returnEvent = {
+        ...returnEvent,
+        status: EventStatus.COMPLETED,
+      };
+
+      await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
     }
 
     await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
     return returnEvent;
   }
 
-  public setupHooks(hooks: IDomainEventHooks) {
-    this.hooks = hooks;
+  /**
+   * @deprecated will be implemented later
+   */
+  public async retryEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
+    throw new Error('not implemented');
   }
-};
-
-export const createDomainEvent = <T extends IDomainEvent>({
-  action,
-  params,
-  metadata,
-}: CreateDomainEventArgs<T>): CreateDomainEventReturnType<T> => ({
-  id: uuidv4(),
-  parent: null,
-  createdAt: Date.now(),
-  initiatedAt: null,
-  executedAt: null,
-  completedAt: null,
-  action,
-  params,
-  state: {},
-  errors: [],
-  metadata: metadata ?? {},
-} as any);
+}
