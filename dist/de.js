@@ -8,156 +8,133 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createDomainEvent = exports.DomainEvents = void 0;
+exports.DomainEvents = void 0;
 const uuid_1 = require("uuid");
+const tryCatch_1 = __importDefault(require("./utils/tryCatch"));
+const interface_1 = require("./interface");
 class DomainEvents {
-    constructor() {
+    constructor(hooks) {
         this.handlerMap = new Map();
-        this.actionMap = new Map();
+        this.eventMap = new Map();
+        this.generateDomainEvent = this.generateDomainEvent.bind(this);
+        this.handleEvent = this.handleEvent.bind(this);
+        // this.retryEvent = this.retryEvent.bind(this);
+        this.register = this.register.bind(this);
+        this.on = this.on.bind(this);
+        this.off = this.off.bind(this);
+        this.hooks = hooks;
     }
-    initiateEvent(event, handler) {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
-            return ((yield ((_a = handler.initiate) === null || _a === void 0 ? void 0 : _a.call(handler, event))) || []);
-        });
-    }
-    executeEvent(event, events, handler) {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
-            return ((yield ((_a = handler.execute) === null || _a === void 0 ? void 0 : _a.call(handler, event, events))) || []);
-        });
-    }
-    completeEvent(event, events, handler) {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
-            return ((yield ((_a = handler.complete) === null || _a === void 0 ? void 0 : _a.call(handler, event, events))) || []);
-        });
-    }
-    registerHandler(action, handler) {
-        var _a;
-        const handlers = (_a = this.handlerMap.get(action)) !== null && _a !== void 0 ? _a : [];
-        const hasNonMiddlewareHandler = handlers.some(s => !s.isMiddleware);
-        if (hasNonMiddlewareHandler && !handler.isMiddleware) {
-            throw new Error('cannot have more than one non-middleware handler');
-        }
-        if (!handlers.includes(handler)) {
-            handlers.push(handler);
-        }
-        this.handlerMap.set(action, handlers);
+    generateDomainEvent({ action, params, metadata, state }) {
+        return {
+            id: uuid_1.v4(),
+            parent: null,
+            action,
+            phase: interface_1.EventPhase.INITIATE,
+            status: interface_1.EventStatus.PENDING,
+            error: null,
+            params: params !== null && params !== void 0 ? params : {},
+            state: state !== null && state !== void 0 ? state : {},
+            metadata: metadata !== null && metadata !== void 0 ? metadata : {},
+        };
     }
     on(action, callback) {
-        const callbacks = this.actionMap.get(action) || [];
-        if (callbacks.includes(callback)) {
-            return;
+        var _a;
+        const callbacks = (_a = this.eventMap.get(action)) !== null && _a !== void 0 ? _a : [];
+        if (!callbacks.includes(callback)) {
+            callbacks.push(callback);
+            this.eventMap.set(action, callbacks);
         }
-        callbacks.push(callback);
-        this.actionMap.set(action, callbacks);
     }
     off(action, callback) {
         var _a;
         if (!callback) {
-            this.actionMap.delete(action);
-            return;
+            this.eventMap.delete(action);
         }
-        const callbacks = (_a = this.actionMap.get(action)) !== null && _a !== void 0 ? _a : [];
-        if (callbacks.some(s => s === callback)) {
-            this.actionMap.set(action, callbacks.filter(f => f !== callback));
+        else {
+            const callbacks = (_a = this.eventMap.get(action)) !== null && _a !== void 0 ? _a : [];
+            if (callbacks.some((s) => s === callback)) {
+                this.eventMap.set(action, callbacks.filter((f) => f !== callback));
+            }
         }
     }
-    invoke(event, options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0;
+    register(action, handler) {
+        if (this.handlerMap.has(action)) {
+            throw new Error(`handler is already registered for the ${action} action.`);
+        }
+        this.handlerMap.set(action, handler);
+    }
+    handleEvent(event) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
         return __awaiter(this, void 0, void 0, function* () {
-            if (event.completedAt && !(options === null || options === void 0 ? void 0 : options.retryCompleted)) {
-                return event;
+            let returnEvent = (yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, event))) || event;
+            if (returnEvent.status === interface_1.EventStatus.COMPLETED) {
+                // return already completed event immediately without handling it.
+                // we dont execute event listeners in this case, because it could've already
+                // fired when the event was completed.
+                return returnEvent;
             }
-            let returnEvent = Object.assign(Object.assign({}, event), { parent: (_a = options === null || options === void 0 ? void 0 : options.parent) !== null && _a !== void 0 ? _a : null });
-            returnEvent = (yield ((_c = (_b = this.hooks) === null || _b === void 0 ? void 0 : _b.beforeInvoke) === null || _c === void 0 ? void 0 : _c.call(_b, returnEvent))) || returnEvent;
-            for (const [action, handlers] of this.handlerMap.entries()) {
-                if (action === event.action) {
-                    for (const handler of handlers) {
-                        let initiateChildEvents = [];
-                        let executeChildEvents = [];
-                        returnEvent = handler.isMiddleware
-                            ? returnEvent
-                            : (yield ((_e = (_d = this.hooks) === null || _d === void 0 ? void 0 : _d.beforeInitiate) === null || _e === void 0 ? void 0 : _e.call(_d, returnEvent))) || returnEvent;
-                        returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { initiatedAt: Date.now() }));
-                        try {
-                            initiateChildEvents = yield this.initiateEvent(returnEvent, handler);
-                        }
-                        catch (err) {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_f = returnEvent.errors) !== null && _f !== void 0 ? _f : [], err] });
-                        }
-                        const initiateChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(initiateChildEvents.map((event) => this.invoke(event, { parent: returnEvent.parent })));
-                        if (!handler.isMiddleware) {
-                            yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
-                        }
-                        if (!returnEvent.errors.length) {
-                            returnEvent = handler.isMiddleware
-                                ? returnEvent
-                                : (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent))) || returnEvent;
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { executedAt: Date.now() }));
-                            try {
-                                executeChildEvents = yield this.executeEvent(returnEvent, initiateChildEventStates, handler);
-                            }
-                            catch (err) {
-                                returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_l = returnEvent.errors) !== null && _l !== void 0 ? _l : [], err] });
-                            }
-                        }
-                        const executeChildEventStates = returnEvent.errors.length ? [] : yield Promise.all(executeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })));
-                        if (!handler.isMiddleware) {
-                            yield ((_o = (_m = this.hooks) === null || _m === void 0 ? void 0 : _m.afterExecute) === null || _o === void 0 ? void 0 : _o.call(_m, returnEvent));
-                            returnEvent = (yield ((_q = (_p = this.hooks) === null || _p === void 0 ? void 0 : _p.beforeComplete) === null || _q === void 0 ? void 0 : _q.call(_p, returnEvent))) || returnEvent;
-                        }
-                        returnEvent = Object.assign(Object.assign({}, returnEvent), (handler.isMiddleware ? null : { completedAt: Date.now() }));
-                        try {
-                            const completeChildEvents = yield this.completeEvent(returnEvent, executeChildEventStates, handler);
-                            yield Promise.all(completeChildEvents.map((event) => this.invoke(event, { parent: returnEvent.id })));
-                        }
-                        catch (err) {
-                            returnEvent = Object.assign(Object.assign({}, returnEvent), { errors: [...(_r = returnEvent.errors) !== null && _r !== void 0 ? _r : [], err] });
-                            if (!returnEvent.parent) {
-                                if (!handler.isMiddleware) {
-                                    yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent));
-                                }
-                                yield ((_v = (_u = this.hooks) === null || _u === void 0 ? void 0 : _u.afterInvoke) === null || _v === void 0 ? void 0 : _v.call(_u, returnEvent));
-                                throw err;
-                            }
-                        }
-                        if (!handler.isMiddleware) {
-                            yield ((_x = (_w = this.hooks) === null || _w === void 0 ? void 0 : _w.afterComplete) === null || _x === void 0 ? void 0 : _x.call(_w, returnEvent));
-                            // call event listeners
-                            (_y = this.actionMap
-                                .get(event.action)) === null || _y === void 0 ? void 0 : _y.map((callback) => {
-                                try {
-                                    callback(returnEvent);
-                                }
-                                finally { }
-                            });
-                        }
-                    }
+            if (returnEvent.status !== interface_1.EventStatus.PENDING || returnEvent.phase !== interface_1.EventPhase.INITIATE) {
+                // event must be in an INITIATE phase with status of PENDING, otherwise
+                // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
+                throw new Error(`event ${returnEvent.id} must be in ${interface_1.EventStatus['PENDING']} state and ${interface_1.EventPhase.INITIATE} phase to proceed.`);
+            }
+            const handler = this.handlerMap.get(returnEvent.action);
+            bp: if (typeof handler !== 'undefined') {
+                returnEvent = (yield ((_d = (_c = this.hooks) === null || _c === void 0 ? void 0 : _c.beforeInitiate) === null || _d === void 0 ? void 0 : _d.call(_c, returnEvent))) || returnEvent;
+                // handler found, set status to IN_PROGRESS
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.IN_PROGRESS });
+                // initiation phase
+                const initiateEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.initiate) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent); })) || [];
+                if (initiateEvents instanceof Error) {
+                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: initiateEvents.message });
+                    yield ((_f = (_e = this.hooks) === null || _e === void 0 ? void 0 : _e.afterInitiate) === null || _f === void 0 ? void 0 : _f.call(_e, returnEvent));
+                    break bp;
                 }
+                yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
+                // execution phase
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { phase: interface_1.EventPhase.EXECUTE });
+                const initiateEventStates = yield Promise.all(initiateEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
+                returnEvent = (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent, initiateEventStates))) || returnEvent;
+                const executeEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.execute) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent, initiateEventStates); })) || [];
+                if (executeEvents instanceof Error) {
+                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: executeEvents.message });
+                    yield ((_m = (_l = this.hooks) === null || _l === void 0 ? void 0 : _l.afterExecute) === null || _m === void 0 ? void 0 : _m.call(_l, returnEvent, initiateEventStates));
+                    break bp;
+                }
+                yield ((_p = (_o = this.hooks) === null || _o === void 0 ? void 0 : _o.afterExecute) === null || _p === void 0 ? void 0 : _p.call(_o, returnEvent, initiateEventStates));
+                // completion phase
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { phase: interface_1.EventPhase.COMPLETE });
+                const executeEventStates = yield Promise.all(executeEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
+                returnEvent = (yield ((_r = (_q = this.hooks) === null || _q === void 0 ? void 0 : _q.beforeComplete) === null || _r === void 0 ? void 0 : _r.call(_q, returnEvent, executeEventStates))) || returnEvent;
+                const completeEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.complete) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent, executeEventStates); })) || [];
+                if (completeEvents instanceof Error) {
+                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: completeEvents.message });
+                    yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent, executeEventStates));
+                    break bp;
+                }
+                // "fire and forget" events returned from the complete phase
+                Promise.all(completeEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
+                // call event listeners
+                (_u = this.eventMap.get(returnEvent.action)) === null || _u === void 0 ? void 0 : _u.map((callback) => tryCatch_1.default(() => callback(returnEvent)));
+                // mark event as completed
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.COMPLETED });
+                yield ((_w = (_v = this.hooks) === null || _v === void 0 ? void 0 : _v.afterComplete) === null || _w === void 0 ? void 0 : _w.call(_v, returnEvent, executeEventStates));
             }
-            yield ((_0 = (_z = this.hooks) === null || _z === void 0 ? void 0 : _z.afterInvoke) === null || _0 === void 0 ? void 0 : _0.call(_z, returnEvent));
+            yield ((_y = (_x = this.hooks) === null || _x === void 0 ? void 0 : _x.afterInvoke) === null || _y === void 0 ? void 0 : _y.call(_x, returnEvent));
             return returnEvent;
         });
     }
-    setupHooks(hooks) {
-        this.hooks = hooks;
+    /**
+     * @deprecated will be implemented later
+     */
+    retryEvent(event) {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error('not implemented');
+        });
     }
 }
 exports.DomainEvents = DomainEvents;
-;
-exports.createDomainEvent = ({ action, params, metadata, }) => ({
-    id: uuid_1.v4(),
-    parent: null,
-    createdAt: Date.now(),
-    initiatedAt: null,
-    executedAt: null,
-    completedAt: null,
-    action,
-    params,
-    state: {},
-    errors: [],
-    metadata: metadata !== null && metadata !== void 0 ? metadata : {},
-});
