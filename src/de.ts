@@ -184,17 +184,10 @@ export class DomainEvents {
         status: EventStatus.COMPLETED,
       };
 
-      await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
+      await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, completeEvents);
     }
 
     await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
     return returnEvent;
-  }
-
-  /**
-   * @deprecated will be implemented later
-   */
-  public async retryEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
-    throw new Error('not implemented');
   }
 }
