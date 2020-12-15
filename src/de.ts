@@ -123,12 +123,15 @@ export class DomainEvents {
         phase: EventPhase.EXECUTE,
       };
 
+      returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEvents) as T || returnEvent;
+
       const initiateEventStates = await Promise.all(
         initiateEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
       );
 
-      returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates) as T || returnEvent;
-      const executeEvents = await tryCatch(() => handler.execute?.(returnEvent, initiateEventStates)) || [];
+      const executeEvents = await tryCatch(
+        () => handler.execute?.(returnEvent, initiateEventStates),
+      ) || [];
 
       if (executeEvents instanceof Error) {
         returnEvent = {
@@ -150,12 +153,15 @@ export class DomainEvents {
         phase: EventPhase.COMPLETE,
       };
 
+      returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEvents) as T || returnEvent;
+
       const executeEventStates = await Promise.all(
         executeEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
       );
 
-      returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEventStates) as T || returnEvent;
-      const completeEvents = await tryCatch(() => handler.complete?.(returnEvent, executeEventStates)) || [];
+      const completeEvents = await tryCatch(
+        () => handler.complete?.(returnEvent, executeEventStates)
+      ) || [];
 
       if (completeEvents instanceof Error) {
         returnEvent = {
@@ -184,7 +190,7 @@ export class DomainEvents {
         status: EventStatus.COMPLETED,
       };
 
-      await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, completeEvents);
+      await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
     }
 
     await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
