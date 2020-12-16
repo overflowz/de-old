@@ -64,9 +64,9 @@ export type BeforeHookReturnType<T> = void | Promise<void> | DeepReadonly<T> | P
 export type AfterHookReturnType = void | Promise<void>;
 
 export interface IDomainEventHandler<T extends IDomainEvent> {
-  initiate?: (event: T) => PhaseReturnType;
-  execute?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
-  complete?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
+  [EventPhase.INITIATE]?: (event: T) => PhaseReturnType;
+  [EventPhase.EXECUTE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
+  [EventPhase.COMPLETE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
 }
 
 export interface IDomainEventHooks {
