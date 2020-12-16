@@ -82,6 +82,6 @@ export interface IDomainEventHooks {
 
 export type EventCallback<T extends IDomainEvent> = (value: T) => void;
 
-export type GenerateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'action'> & Partial<Pick<T, 'params' | 'state' | 'metadata' | 'parent'>>
+export type GenerateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'action'> & Partial<Pick<T, 'id' | 'params' | 'state' | 'metadata' | 'parent'>>
 
 export type GenerateDomainEventReturnType<T extends IDomainEvent> = IDomainEvent<T['params'], T['state']> & Pick<T, 'action' | 'metadata'>;

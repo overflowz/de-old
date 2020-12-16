@@ -29,9 +29,9 @@ export class DomainEvents {
     this.hooks = hooks;
   }
 
-  public generateDomainEvent<T extends IDomainEvent>({ action, params, metadata, state }: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> {
+  public generateDomainEvent<T extends IDomainEvent>({ id, action, params, metadata, state }: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> {
     return {
-      id: uuidv4(),
+      id: id ?? uuidv4(),
       parent: null,
       action,
       phase: EventPhase.INITIATE,
