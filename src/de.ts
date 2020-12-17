@@ -119,7 +119,16 @@ export class DomainEvents {
         returnEvent = {
           ...returnEvent,
           ...initiateEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+          // keep original phase/status.
+          phase: returnEvent.phase,
+          status: returnEvent.status,
         };
+
+        const initiateEventStates: IDomainEvent[] = await Promise.all(
+          initiateEvents
+            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+        );
 
         await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
 
@@ -130,13 +139,7 @@ export class DomainEvents {
           phase: EventPhase.EXECUTE,
         };
 
-        returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEvents) as T || returnEvent;
-
-        const initiateEventStates = await Promise.all(
-          initiateEvents
-            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
-            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
-        );
+        returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates) as T || returnEvent;
 
         const executeEvents = await executeHandlers(handlers, EventPhase.EXECUTE, returnEvent, initiateEventStates);
 
@@ -154,7 +157,16 @@ export class DomainEvents {
         returnEvent = {
           ...returnEvent,
           ...executeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+          // keep original phase/status.
+          phase: returnEvent.phase,
+          status: returnEvent.status,
         };
+
+        const executeEventStates: IDomainEvent[] = await Promise.all(
+          executeEvents
+            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+        );
 
         await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
 
@@ -165,13 +177,7 @@ export class DomainEvents {
           phase: EventPhase.COMPLETE,
         };
 
-        returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEvents) as T || returnEvent;
-
-        const executeEventStates = await Promise.all(
-          executeEvents
-            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
-            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
-        );
+        returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEventStates) as T || returnEvent;
 
         const completeEvents = await executeHandlers(handlers, EventPhase.COMPLETE, returnEvent, executeEventStates);
 
@@ -189,6 +195,9 @@ export class DomainEvents {
         returnEvent = {
           ...returnEvent,
           ...completeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+          // keep original phase/status.
+          phase: returnEvent.phase,
+          status: returnEvent.status,
         };
 
         // "fire and forget" events returned from the complete phase
