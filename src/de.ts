@@ -116,6 +116,11 @@ export class DomainEvents {
           break bp;
         }
 
+        returnEvent = {
+          ...returnEvent,
+          ...initiateEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        };
+
         await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
 
         // execution phase
@@ -128,7 +133,9 @@ export class DomainEvents {
         returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEvents) as T || returnEvent;
 
         const initiateEventStates = await Promise.all(
-          initiateEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+          initiateEvents
+            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
         const executeEvents = await executeHandlers(handlers, EventPhase.EXECUTE, returnEvent, initiateEventStates);
@@ -144,6 +151,11 @@ export class DomainEvents {
           break bp;
         }
 
+        returnEvent = {
+          ...returnEvent,
+          ...executeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        };
+
         await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
 
         // completion phase
@@ -156,7 +168,9 @@ export class DomainEvents {
         returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEvents) as T || returnEvent;
 
         const executeEventStates = await Promise.all(
-          executeEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+          executeEvents
+            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
         const completeEvents = await executeHandlers(handlers, EventPhase.COMPLETE, returnEvent, executeEventStates);
@@ -172,9 +186,16 @@ export class DomainEvents {
           break bp;
         }
 
+        returnEvent = {
+          ...returnEvent,
+          ...completeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        };
+
         // "fire and forget" events returned from the complete phase
         Promise.all(
-          completeEvents.map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+          completeEvents
+            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
         // call event listeners

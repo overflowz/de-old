@@ -46,7 +46,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   /**
    * state of the event (output)
    */
-  state: Partial<DeepReadonly<S>>;
+  readonly state: Partial<DeepReadonly<S>>;
   /**
    * custom metadata
    */
