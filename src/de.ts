@@ -211,8 +211,6 @@ export class DomainEvents {
 
         await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
       }
-
-      await this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>);
     } catch (err) {
       const normalizedError = err instanceof Error
         ? err
@@ -224,6 +222,8 @@ export class DomainEvents {
         message: normalizedError.message,
       };
     }
+
+    await tryCatch(() => this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>));
 
     return returnEvent;
   }
