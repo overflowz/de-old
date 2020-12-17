@@ -75,20 +75,20 @@ export class DomainEvents {
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
     let returnEvent: T = event;
 
-    if (returnEvent.status === EventStatus.COMPLETED) {
-      // return already completed event immediately without handling it.
-      // we dont execute event listeners in this case, because it could've already
-      // fired when the event was completed.
-      return returnEvent;
-    }
-
-    if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
-      // event must be in an INITIATE phase with status of PENDING, otherwise
-      // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
-      throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state and ${EventPhase.INITIATE} phase to proceed.`);
-    }
-
     try {
+      if (returnEvent.status === EventStatus.COMPLETED) {
+        // return already completed event immediately without handling it.
+        // we dont execute event listeners in this case, because it could've already
+        // fired when the event was completed.
+        return returnEvent;
+      }
+
+      if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
+        // event must be in an INITIATE phase with status of PENDING, otherwise
+        // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
+        throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state and ${EventPhase.INITIATE} phase to proceed.`);
+      }
+
       returnEvent = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
 
       const handlers: IDomainEventHandler<any>[] | undefined = this.handlerMap.get(returnEvent.action);
