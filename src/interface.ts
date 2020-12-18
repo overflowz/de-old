@@ -59,25 +59,10 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 
 export type PhaseReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 
-export type BeforeHookReturnType<T> = void | Promise<void> | DeepReadonly<T> | Promise<DeepReadonly<T>>;
-
-export type AfterHookReturnType = void | Promise<void>;
-
 export interface IDomainEventHandler<T extends IDomainEvent> {
   [EventPhase.INITIATE]?: (event: T) => PhaseReturnType;
   [EventPhase.EXECUTE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
   [EventPhase.COMPLETE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
-}
-
-export interface IDomainEventHooks {
-  beforeInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => BeforeHookReturnType<T>;
-  beforeInitiate?: <T extends IDomainEvent>(event: DeepReadonly<T>) => BeforeHookReturnType<T>;
-  afterInitiate?: <T extends IDomainEvent>(event: DeepReadonly<T>) => AfterHookReturnType;
-  beforeExecute?: <T extends IDomainEvent>(event: DeepReadonly<T>, childEvents: readonly IDomainEvent[]) => BeforeHookReturnType<T>;
-  afterExecute?: <T extends IDomainEvent>(event: DeepReadonly<T>, childEvents: readonly IDomainEvent[]) => AfterHookReturnType;
-  beforeComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>, childEvents: readonly IDomainEvent[]) => BeforeHookReturnType<T>;
-  afterComplete?: <T extends IDomainEvent>(event: DeepReadonly<T>, childEvents: readonly IDomainEvent[]) => AfterHookReturnType;
-  afterInvoke?: <T extends IDomainEvent>(event: DeepReadonly<T>) => AfterHookReturnType;
 }
 
 export type EventCallback<T extends IDomainEvent> = (value: T) => void;

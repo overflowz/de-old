@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import tryCatch from './utils/tryCatch';
 import executeHandlers from './utils/executeHandlers';
 import {
-  DeepReadonly,
   EventCallback,
   EventPhase,
   EventStatus,
@@ -11,22 +10,18 @@ import {
   GenerateDomainEventReturnType,
   IDomainEvent,
   IDomainEventHandler,
-  IDomainEventHooks,
 } from './interface';
 
 export class DomainEvents {
   private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
   private readonly eventMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
-  private readonly hooks?: IDomainEventHooks;
 
-  constructor(hooks?: IDomainEventHooks) {
+  constructor() {
     this.generateDomainEvent = this.generateDomainEvent.bind(this);
     this.handleEvent = this.handleEvent.bind(this);
     this.register = this.register.bind(this);
     this.on = this.on.bind(this);
     this.off = this.off.bind(this);
-
-    this.hooks = hooks;
   }
 
   public generateDomainEvent<T extends IDomainEvent>({ id, action, params, metadata, state }: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> {
@@ -83,8 +78,6 @@ export class DomainEvents {
     }
 
     try {
-      returnEvent = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
-
       if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
         // event must be in an INITIATE phase with status of PENDING, otherwise
         // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
@@ -93,8 +86,6 @@ export class DomainEvents {
 
       const handlers: IDomainEventHandler<any>[] | undefined = this.handlerMap.get(returnEvent.action);
       bp: if (typeof handlers !== 'undefined') {
-        returnEvent = await this.hooks?.beforeInitiate?.(returnEvent as DeepReadonly<T>) as T || returnEvent;
-
         // handler found, set status to IN_PROGRESS
         returnEvent = {
           ...returnEvent,
@@ -112,7 +103,6 @@ export class DomainEvents {
             error: initiateEvents.message,
           };
 
-          await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
           break bp;
         }
 
@@ -130,16 +120,12 @@ export class DomainEvents {
             .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
-        await this.hooks?.afterInitiate?.(returnEvent as DeepReadonly<T>);
-
         // execution phase
 
         returnEvent = {
           ...returnEvent,
           phase: EventPhase.EXECUTE,
         };
-
-        returnEvent = await this.hooks?.beforeExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates) as T || returnEvent;
 
         const executeEvents = await executeHandlers(handlers, EventPhase.EXECUTE, returnEvent, initiateEventStates);
 
@@ -150,7 +136,6 @@ export class DomainEvents {
             error: executeEvents.message,
           };
 
-          await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
           break bp;
         }
 
@@ -168,16 +153,12 @@ export class DomainEvents {
             .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
-        await this.hooks?.afterExecute?.(returnEvent as DeepReadonly<T>, initiateEventStates);
-
         // completion phase
 
         returnEvent = {
           ...returnEvent,
           phase: EventPhase.COMPLETE,
         };
-
-        returnEvent = await this.hooks?.beforeComplete?.(returnEvent as DeepReadonly<T>, executeEventStates) as T || returnEvent;
 
         const completeEvents = await executeHandlers(handlers, EventPhase.COMPLETE, returnEvent, executeEventStates);
 
@@ -188,7 +169,6 @@ export class DomainEvents {
             error: completeEvents.message,
           };
 
-          await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
           break bp;
         }
 
@@ -217,8 +197,6 @@ export class DomainEvents {
           ...returnEvent,
           status: EventStatus.COMPLETED,
         };
-
-        await this.hooks?.afterComplete?.(returnEvent as DeepReadonly<T>, executeEventStates);
       }
     } catch (err) {
       const normalizedError = err instanceof Error
@@ -231,8 +209,6 @@ export class DomainEvents {
         message: normalizedError.message,
       };
     }
-
-    await tryCatch(() => this.hooks?.afterInvoke?.(returnEvent as DeepReadonly<T>));
 
     return returnEvent;
   }
