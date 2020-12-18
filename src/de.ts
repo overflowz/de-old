@@ -83,13 +83,13 @@ export class DomainEvents {
         return returnEvent;
       }
 
+      returnEvent = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
+
       if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
         // event must be in an INITIATE phase with status of PENDING, otherwise
         // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
         throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state and ${EventPhase.INITIATE} phase to proceed.`);
       }
-
-      returnEvent = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
 
       const handlers: IDomainEventHandler<any>[] | undefined = this.handlerMap.get(returnEvent.action);
       bp: if (typeof handlers !== 'undefined') {
