@@ -75,14 +75,14 @@ export class DomainEvents {
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
     let returnEvent: T = event;
 
-    try {
-      if (returnEvent.status === EventStatus.COMPLETED) {
-        // return already completed event immediately without handling it.
-        // we dont execute event listeners in this case, because it could've already
-        // fired when the event was completed.
-        return returnEvent;
-      }
+    if (returnEvent.status === EventStatus.COMPLETED) {
+      // return already completed event immediately without handling it.
+      // we dont execute event listeners in this case, because it could've already
+      // fired when the event was completed.
+      return returnEvent;
+    }
 
+    try {
       returnEvent = await this.hooks?.beforeInvoke?.(event as DeepReadonly<T>) as T || event;
 
       if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
