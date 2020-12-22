@@ -94,7 +94,7 @@ export class DomainEvents {
 
         // initiation phase
 
-        const initiateEvents = await executeHandlers(handlers, EventPhase.INITIATE, returnEvent);
+        const initiateEvents = await executeHandlers(handlers, EventPhase.INITIATE, returnEvent, []);
 
         if (initiateEvents instanceof Error) {
           returnEvent = {
