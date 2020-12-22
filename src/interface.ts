@@ -59,12 +59,10 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
 
 export type PhaseReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
 
-export type PhaseHandler<T> = (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
-
 export interface IDomainEventHandler<T extends IDomainEvent> {
-  [EventPhase.INITIATE]?: PhaseHandler<T>;
-  [EventPhase.EXECUTE]?: PhaseHandler<T>;
-  [EventPhase.COMPLETE]?: PhaseHandler<T>;
+  [EventPhase.INITIATE]?: (event: T) => PhaseReturnType;
+  [EventPhase.EXECUTE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
+  [EventPhase.COMPLETE]?: (event: T, children: readonly IDomainEvent[]) => PhaseReturnType;
 }
 
 export type EventCallback<T extends IDomainEvent> = (value: T) => void;
