@@ -12,31 +12,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DomainEvents = void 0;
+exports.DomainEvents = exports.generateDomainEvent = void 0;
 const uuid_1 = require("uuid");
 const tryCatch_1 = __importDefault(require("./utils/tryCatch"));
 const interface_1 = require("./interface");
+exports.generateDomainEvent = ({ id, action, params, metadata, state, }) => ({
+    id: id !== null && id !== void 0 ? id : uuid_1.v4(),
+    parent: null,
+    action,
+    status: interface_1.EventStatus.PENDING,
+    error: null,
+    params: params !== null && params !== void 0 ? params : {},
+    state: state !== null && state !== void 0 ? state : {},
+    metadata: metadata !== null && metadata !== void 0 ? metadata : {},
+});
 class DomainEvents {
     constructor() {
         this.handlerMap = new Map();
         this.eventMap = new Map();
-        this.generateDomainEvent = this.generateDomainEvent.bind(this);
         this.handleEvent = this.handleEvent.bind(this);
         this.register = this.register.bind(this);
         this.on = this.on.bind(this);
         this.off = this.off.bind(this);
-    }
-    generateDomainEvent({ id, action, params, metadata, state }) {
-        return {
-            id: id !== null && id !== void 0 ? id : uuid_1.v4(),
-            parent: null,
-            action,
-            status: interface_1.EventStatus.PENDING,
-            error: null,
-            params: params !== null && params !== void 0 ? params : {},
-            state: state !== null && state !== void 0 ? state : {},
-            metadata: metadata !== null && metadata !== void 0 ? metadata : {},
-        };
     }
     on(action, callback) {
         var _a;
