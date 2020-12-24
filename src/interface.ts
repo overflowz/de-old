@@ -32,10 +32,6 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
    */
   readonly action: string;
   /**
-   * current event phase
-   */
-  readonly phase: EventPhase;
-  /**
    * current event status
    */
   readonly status: EventStatus;

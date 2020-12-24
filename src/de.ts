@@ -1,10 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import tryCatch from './utils/tryCatch';
-import executeHandlers from './utils/executeHandlers';
 import {
   EventCallback,
-  EventPhase,
   EventStatus,
   GenerateDomainEventArgs,
   GenerateDomainEventReturnType,
@@ -29,7 +27,6 @@ export class DomainEvents {
       id: id ?? uuidv4(),
       parent: null,
       action,
-      phase: EventPhase.INITIATE,
       status: EventStatus.PENDING,
       error: null,
       params: params ?? {},
@@ -70,134 +67,86 @@ export class DomainEvents {
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
     let returnEvent: T = event;
 
-    if (returnEvent.status === EventStatus.COMPLETED) {
-      // return already completed event immediately without handling it.
-      // we dont execute event listeners in this case, because it could've already
-      // fired when the event was completed.
-      return returnEvent;
-    }
-
     try {
-      if (returnEvent.status !== EventStatus.PENDING || returnEvent.phase !== EventPhase.INITIATE) {
-        // event must be in an INITIATE phase with status of PENDING, otherwise
-        // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
-        throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state and ${EventPhase.INITIATE} phase to proceed.`);
+      if (returnEvent.status === EventStatus.COMPLETED) {
+        return returnEvent;
       }
 
-      const handlers: IDomainEventHandler<any>[] | undefined = this.handlerMap.get(returnEvent.action);
-      bp: if (typeof handlers !== 'undefined') {
-        // handler found, set status to IN_PROGRESS
-        returnEvent = {
-          ...returnEvent,
-          status: EventStatus.IN_PROGRESS,
-        };
+      if (returnEvent.status !== EventStatus.PENDING) {
+        throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state to proceed.`);
+      }
 
+      const handlers: IDomainEventHandler<any>[] = this.handlerMap.get(returnEvent.action) ?? [];
+      if (!handlers.length) {
+        return returnEvent;
+      }
+
+      returnEvent = {
+        ...returnEvent,
+        status: EventStatus.IN_PROGRESS,
+      };
+
+      for (const handler of handlers) {
         // initiation phase
 
-        const initiateEvents = await executeHandlers(handlers, EventPhase.INITIATE, returnEvent, []);
-
-        if (initiateEvents instanceof Error) {
-          returnEvent = {
-            ...returnEvent,
-            status: EventStatus.FAILED,
-            error: initiateEvents.message,
-          };
-
-          break bp;
-        }
+        let children: readonly IDomainEvent[] = await handler.initiate?.(returnEvent) || [];
 
         returnEvent = {
           ...returnEvent,
-          ...initiateEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          // keep original phase/status.
-          phase: returnEvent.phase,
+          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
           status: returnEvent.status,
         };
 
-        const initiateEventStates: IDomainEvent[] = await Promise.all(
-          initiateEvents
+        children = await Promise.all(
+          children
             .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
             .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
         // execution phase
 
-        returnEvent = {
-          ...returnEvent,
-          phase: EventPhase.EXECUTE,
-        };
-
-        const executeEvents = await executeHandlers(handlers, EventPhase.EXECUTE, returnEvent, initiateEventStates);
-
-        if (executeEvents instanceof Error) {
-          returnEvent = {
-            ...returnEvent,
-            status: EventStatus.FAILED,
-            error: executeEvents.message,
-          };
-
-          break bp;
-        }
+        children = await handler.execute?.(returnEvent, children) || [];
 
         returnEvent = {
           ...returnEvent,
-          ...executeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          // keep original phase/status.
-          phase: returnEvent.phase,
+          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
           status: returnEvent.status,
         };
 
-        const executeEventStates: IDomainEvent[] = await Promise.all(
-          executeEvents
+        children = await Promise.all(
+          children
             .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
             .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
 
         // completion phase
 
-        returnEvent = {
-          ...returnEvent,
-          phase: EventPhase.COMPLETE,
-        };
-
-        const completeEvents = await executeHandlers(handlers, EventPhase.COMPLETE, returnEvent, executeEventStates);
-
-        if (completeEvents instanceof Error) {
-          returnEvent = {
-            ...returnEvent,
-            status: EventStatus.FAILED,
-            error: completeEvents.message,
-          };
-
-          break bp;
-        }
+        children = await handler.complete?.(returnEvent, children) || [];
 
         returnEvent = {
           ...returnEvent,
-          ...completeEvents.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          // keep original phase/status.
-          phase: returnEvent.phase,
+          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
           status: returnEvent.status,
         };
 
         // "fire and forget" events returned from the complete phase
         Promise.all(
-          completeEvents
+          children
             .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
             .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
         );
-
-        // call event listeners
-        this.eventMap.get(returnEvent.action)?.map(
-          (callback: EventCallback<T>) => tryCatch(() => callback(returnEvent)),
-        );
-
-        // mark event as completed
-        returnEvent = {
-          ...returnEvent,
-          status: EventStatus.COMPLETED,
-        };
       }
+
+      // call event listeners
+      this.eventMap.get(returnEvent.action)?.map(
+        (callback: EventCallback<T>) => tryCatch(() => callback(returnEvent)),
+      );
+
+      // mark event as completed
+      returnEvent = {
+        ...returnEvent,
+        status: EventStatus.COMPLETED,
+      };
     } catch (err) {
       const normalizedError = err instanceof Error
         ? err
