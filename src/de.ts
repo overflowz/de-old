@@ -10,29 +10,32 @@ import {
   IDomainEventHandler,
 } from './interface';
 
+export const generateDomainEvent = <T extends IDomainEvent>({
+  id,
+  action,
+  params,
+  metadata,
+  state,
+}: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> => ({
+  id: id ?? uuidv4(),
+  parent: null,
+  action,
+  status: EventStatus.PENDING,
+  error: null,
+  params: params ?? {},
+  state: state ?? {},
+  metadata: metadata ?? {},
+});
+
 export class DomainEvents {
   private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
   private readonly eventMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
 
   constructor() {
-    this.generateDomainEvent = this.generateDomainEvent.bind(this);
     this.handleEvent = this.handleEvent.bind(this);
     this.register = this.register.bind(this);
     this.on = this.on.bind(this);
     this.off = this.off.bind(this);
-  }
-
-  public generateDomainEvent<T extends IDomainEvent>({ id, action, params, metadata, state }: GenerateDomainEventArgs<T>): GenerateDomainEventReturnType<T> {
-    return {
-      id: id ?? uuidv4(),
-      parent: null,
-      action,
-      status: EventStatus.PENDING,
-      error: null,
-      params: params ?? {},
-      state: state ?? {},
-      metadata: metadata ?? {},
-    };
   }
 
   public on<T extends IDomainEvent>(action: T['action'], callback: EventCallback<T>): void {
