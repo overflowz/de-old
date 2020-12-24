@@ -17,23 +17,20 @@ const uuid_1 = require("uuid");
 const tryCatch_1 = __importDefault(require("./utils/tryCatch"));
 const interface_1 = require("./interface");
 class DomainEvents {
-    constructor(hooks) {
+    constructor() {
         this.handlerMap = new Map();
         this.eventMap = new Map();
         this.generateDomainEvent = this.generateDomainEvent.bind(this);
         this.handleEvent = this.handleEvent.bind(this);
-        // this.retryEvent = this.retryEvent.bind(this);
         this.register = this.register.bind(this);
         this.on = this.on.bind(this);
         this.off = this.off.bind(this);
-        this.hooks = hooks;
     }
-    generateDomainEvent({ action, params, metadata, state }) {
+    generateDomainEvent({ id, action, params, metadata, state }) {
         return {
-            id: uuid_1.v4(),
+            id: id !== null && id !== void 0 ? id : uuid_1.v4(),
             parent: null,
             action,
-            phase: interface_1.EventPhase.INITIATE,
             status: interface_1.EventStatus.PENDING,
             error: null,
             params: params !== null && params !== void 0 ? params : {},
@@ -61,79 +58,61 @@ class DomainEvents {
             }
         }
     }
-    register(action, handler) {
+    register(action, handlers) {
         if (this.handlerMap.has(action)) {
-            throw new Error(`handler is already registered for the ${action} action.`);
+            throw new Error(`handlers are already registered for the ${action} action.`);
         }
-        this.handlerMap.set(action, handler);
+        this.handlerMap.set(action, handlers);
     }
     handleEvent(event) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
+        var _a, _b, _c, _d, _e;
         return __awaiter(this, void 0, void 0, function* () {
-            let returnEvent = (yield ((_b = (_a = this.hooks) === null || _a === void 0 ? void 0 : _a.beforeInvoke) === null || _b === void 0 ? void 0 : _b.call(_a, event))) || event;
-            if (returnEvent.status === interface_1.EventStatus.COMPLETED) {
-                // return already completed event immediately without handling it.
-                // we dont execute event listeners in this case, because it could've already
-                // fired when the event was completed.
-                return returnEvent;
-            }
-            if (returnEvent.status !== interface_1.EventStatus.PENDING || returnEvent.phase !== interface_1.EventPhase.INITIATE) {
-                // event must be in an INITIATE phase with status of PENDING, otherwise
-                // unexpected results might occur (i.e., duplicate processing, data integrity issues, etc.).
-                throw new Error(`event ${returnEvent.id} must be in ${interface_1.EventStatus['PENDING']} state and ${interface_1.EventPhase.INITIATE} phase to proceed.`);
-            }
-            const handler = this.handlerMap.get(returnEvent.action);
-            bp: if (typeof handler !== 'undefined') {
-                returnEvent = (yield ((_d = (_c = this.hooks) === null || _c === void 0 ? void 0 : _c.beforeInitiate) === null || _d === void 0 ? void 0 : _d.call(_c, returnEvent))) || returnEvent;
-                // handler found, set status to IN_PROGRESS
+            let returnEvent = event;
+            try {
+                if (returnEvent.status === interface_1.EventStatus.COMPLETED) {
+                    return returnEvent;
+                }
+                if (returnEvent.status !== interface_1.EventStatus.PENDING) {
+                    throw new Error(`event ${returnEvent.id} must be in ${interface_1.EventStatus['PENDING']} state to proceed.`);
+                }
+                const handlers = (_a = this.handlerMap.get(returnEvent.action)) !== null && _a !== void 0 ? _a : [];
+                if (!handlers.length) {
+                    return returnEvent;
+                }
                 returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.IN_PROGRESS });
-                // initiation phase
-                const initiateEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.initiate) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent); })) || [];
-                if (initiateEvents instanceof Error) {
-                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: initiateEvents.message });
-                    yield ((_f = (_e = this.hooks) === null || _e === void 0 ? void 0 : _e.afterInitiate) === null || _f === void 0 ? void 0 : _f.call(_e, returnEvent));
-                    break bp;
+                for (const handler of handlers) {
+                    // initiation phase
+                    let children = (yield ((_b = handler.initiate) === null || _b === void 0 ? void 0 : _b.call(handler, returnEvent))) || [];
+                    returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                    children = yield Promise.all(children
+                        .filter((ce) => ce.id !== returnEvent.id)
+                        .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
+                    // execution phase
+                    children = (yield ((_c = handler.execute) === null || _c === void 0 ? void 0 : _c.call(handler, returnEvent, children))) || [];
+                    returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                    children = yield Promise.all(children
+                        .filter((ce) => ce.id !== returnEvent.id)
+                        .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
+                    // completion phase
+                    children = (yield ((_d = handler.complete) === null || _d === void 0 ? void 0 : _d.call(handler, returnEvent, children))) || [];
+                    returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                    // "fire and forget" events returned from the complete phase
+                    Promise.all(children
+                        .filter((ce) => ce.id !== returnEvent.id)
+                        .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                 }
-                yield ((_h = (_g = this.hooks) === null || _g === void 0 ? void 0 : _g.afterInitiate) === null || _h === void 0 ? void 0 : _h.call(_g, returnEvent));
-                // execution phase
-                returnEvent = Object.assign(Object.assign({}, returnEvent), { phase: interface_1.EventPhase.EXECUTE });
-                const initiateEventStates = yield Promise.all(initiateEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
-                returnEvent = (yield ((_k = (_j = this.hooks) === null || _j === void 0 ? void 0 : _j.beforeExecute) === null || _k === void 0 ? void 0 : _k.call(_j, returnEvent, initiateEventStates))) || returnEvent;
-                const executeEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.execute) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent, initiateEventStates); })) || [];
-                if (executeEvents instanceof Error) {
-                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: executeEvents.message });
-                    yield ((_m = (_l = this.hooks) === null || _l === void 0 ? void 0 : _l.afterExecute) === null || _m === void 0 ? void 0 : _m.call(_l, returnEvent, initiateEventStates));
-                    break bp;
-                }
-                yield ((_p = (_o = this.hooks) === null || _o === void 0 ? void 0 : _o.afterExecute) === null || _p === void 0 ? void 0 : _p.call(_o, returnEvent, initiateEventStates));
-                // completion phase
-                returnEvent = Object.assign(Object.assign({}, returnEvent), { phase: interface_1.EventPhase.COMPLETE });
-                const executeEventStates = yield Promise.all(executeEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
-                returnEvent = (yield ((_r = (_q = this.hooks) === null || _q === void 0 ? void 0 : _q.beforeComplete) === null || _r === void 0 ? void 0 : _r.call(_q, returnEvent, executeEventStates))) || returnEvent;
-                const completeEvents = (yield tryCatch_1.default(() => { var _a; return (_a = handler.complete) === null || _a === void 0 ? void 0 : _a.call(handler, returnEvent, executeEventStates); })) || [];
-                if (completeEvents instanceof Error) {
-                    returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: completeEvents.message });
-                    yield ((_t = (_s = this.hooks) === null || _s === void 0 ? void 0 : _s.afterComplete) === null || _t === void 0 ? void 0 : _t.call(_s, returnEvent, executeEventStates));
-                    break bp;
-                }
-                // "fire and forget" events returned from the complete phase
-                Promise.all(completeEvents.map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                 // call event listeners
-                (_u = this.eventMap.get(returnEvent.action)) === null || _u === void 0 ? void 0 : _u.map((callback) => tryCatch_1.default(() => callback(returnEvent)));
+                (_e = this.eventMap.get(returnEvent.action)) === null || _e === void 0 ? void 0 : _e.map((callback) => tryCatch_1.default(() => callback(returnEvent)));
                 // mark event as completed
                 returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.COMPLETED });
-                yield ((_w = (_v = this.hooks) === null || _v === void 0 ? void 0 : _v.afterComplete) === null || _w === void 0 ? void 0 : _w.call(_v, returnEvent, executeEventStates));
             }
-            yield ((_y = (_x = this.hooks) === null || _x === void 0 ? void 0 : _x.afterInvoke) === null || _y === void 0 ? void 0 : _y.call(_x, returnEvent));
+            catch (err) {
+                const normalizedError = err instanceof Error
+                    ? err
+                    : new Error(err);
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, message: normalizedError.message });
+            }
             return returnEvent;
-        });
-    }
-    /**
-     * @deprecated will be implemented later
-     */
-    retryEvent(event) {
-        return __awaiter(this, void 0, void 0, function* () {
-            throw new Error('not implemented');
         });
     }
 }
