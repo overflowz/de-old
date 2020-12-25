@@ -53,7 +53,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   readonly error: string | null;
 }
 
-export type PhaseReturnType = void | readonly IDomainEvent[] | Promise<void | readonly IDomainEvent[]>;
+export type PhaseReturnType = void | IDomainEvent | readonly IDomainEvent[] | Promise<void | IDomainEvent | readonly IDomainEvent[]>;
 
 export interface IDomainEventHandler<T extends IDomainEvent> {
   [EventPhase.INITIATE]?: (event: T) => PhaseReturnType;

@@ -92,7 +92,8 @@ export class DomainEvents {
       for (const handler of handlers) {
         // initiation phase
 
-        let children: readonly IDomainEvent[] = await handler.initiate?.(returnEvent) || [];
+        let children: readonly IDomainEvent[] = await Promise.resolve(handler.initiate?.(returnEvent))
+          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
         returnEvent = {
           ...returnEvent,
@@ -108,7 +109,8 @@ export class DomainEvents {
 
         // execution phase
 
-        children = await handler.execute?.(returnEvent, children) || [];
+        children = await Promise.resolve(handler.execute?.(returnEvent, children))
+          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
         returnEvent = {
           ...returnEvent,
@@ -124,7 +126,8 @@ export class DomainEvents {
 
         // completion phase
 
-        children = await handler.complete?.(returnEvent, children) || [];
+        children = await Promise.resolve(handler.complete?.(returnEvent, children))
+          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
         returnEvent = {
           ...returnEvent,
