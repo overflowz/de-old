@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import tryCatch from './utils/tryCatch';
 import {
+  DeepReadonly,
   EventCallback,
   EventStatus,
   GenerateDomainEventArgs,
@@ -23,7 +24,7 @@ export const generateDomainEvent = <T extends IDomainEvent>({
   status: EventStatus.PENDING,
   error: null,
   params: params ?? {},
-  state: state ?? {},
+  state: state as DeepReadonly<T['state']> ?? {},
   metadata: metadata ?? {},
 });
 
