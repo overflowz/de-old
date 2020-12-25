@@ -162,7 +162,7 @@ export class DomainEvents {
       returnEvent = {
         ...returnEvent,
         status: EventStatus.FAILED,
-        error: normalizedError.message,
+        error: normalizedError,
       };
     }
 

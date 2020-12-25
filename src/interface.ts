@@ -50,7 +50,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   /**
    * reason of failure
    */
-  readonly error: string | null;
+  readonly error: Error | string | null;
 }
 
 export type PhaseReturnType = void | IDomainEvent | readonly IDomainEvent[] | Promise<void | IDomainEvent | readonly IDomainEvent[]>;
