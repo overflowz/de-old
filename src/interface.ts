@@ -38,7 +38,7 @@ export interface IDomainEvent<P extends object = object, S extends object = obje
   /**
    * event parameters (input)
    */
-  readonly params: Partial<DeepReadonly<P>>;
+  readonly params: DeepReadonly<P>;
   /**
    * state of the event (output)
    */
@@ -63,6 +63,9 @@ export interface IDomainEventHandler<T extends IDomainEvent> {
 
 export type EventCallback<T extends IDomainEvent> = (value: T) => void;
 
-export type GenerateDomainEventArgs<T extends IDomainEvent> = Pick<T, 'action'> & Partial<Pick<T, 'id' | 'params' | 'state' | 'metadata' | 'parent'>>
+export type GenerateDomainEventArgs<T extends IDomainEvent> =
+  & DeepReadonly<Pick<T, 'action' | 'params'>>
+  & Partial<Pick<T, 'id' | 'state' | 'metadata' | 'parent'>>;
 
-export type GenerateDomainEventReturnType<T extends IDomainEvent> = IDomainEvent<T['params'], T['state']> & Pick<T, 'action' | 'metadata'>;
+export type GenerateDomainEventReturnType<T extends IDomainEvent> =
+  IDomainEvent<T['params'], T['state']> & Pick<T, 'action' | 'metadata'>;
