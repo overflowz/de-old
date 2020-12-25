@@ -1,6 +1,6 @@
 {
   "name": "@overflowz/de",
-  "version": "2.0.2-rc",
+  "version": "2.0.3-rc",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

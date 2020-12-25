@@ -79,19 +79,22 @@ class DomainEvents {
                 returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.IN_PROGRESS });
                 for (const handler of handlers) {
                     // initiation phase
-                    let children = (yield ((_b = handler.initiate) === null || _b === void 0 ? void 0 : _b.call(handler, returnEvent))) || [];
+                    let children = yield Promise.resolve((_b = handler.initiate) === null || _b === void 0 ? void 0 : _b.call(handler, returnEvent))
+                        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
                     returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
                     children = yield Promise.all(children
                         .filter((ce) => ce.id !== returnEvent.id)
                         .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                     // execution phase
-                    children = (yield ((_c = handler.execute) === null || _c === void 0 ? void 0 : _c.call(handler, returnEvent, children))) || [];
+                    children = yield Promise.resolve((_c = handler.execute) === null || _c === void 0 ? void 0 : _c.call(handler, returnEvent, children))
+                        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
                     returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
                     children = yield Promise.all(children
                         .filter((ce) => ce.id !== returnEvent.id)
                         .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                     // completion phase
-                    children = (yield ((_d = handler.complete) === null || _d === void 0 ? void 0 : _d.call(handler, returnEvent, children))) || [];
+                    children = yield Promise.resolve((_d = handler.complete) === null || _d === void 0 ? void 0 : _d.call(handler, returnEvent, children))
+                        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
                     returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
                     // "fire and forget" events returned from the complete phase
                     Promise.all(children
