@@ -113,7 +113,7 @@ class DomainEvents {
                 const normalizedError = err instanceof Error
                     ? err
                     : new Error(err);
-                returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: normalizedError.message });
+                returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.FAILED, error: normalizedError });
             }
             return returnEvent;
         });
