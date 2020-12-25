@@ -16,16 +16,19 @@ exports.DomainEvents = exports.generateDomainEvent = void 0;
 const uuid_1 = require("uuid");
 const tryCatch_1 = __importDefault(require("./utils/tryCatch"));
 const interface_1 = require("./interface");
-exports.generateDomainEvent = ({ id, action, params, metadata, state, }) => ({
-    id: id !== null && id !== void 0 ? id : uuid_1.v4(),
-    parent: null,
-    action,
-    status: interface_1.EventStatus.PENDING,
-    error: null,
-    params: params !== null && params !== void 0 ? params : {},
-    state: state !== null && state !== void 0 ? state : {},
-    metadata: metadata !== null && metadata !== void 0 ? metadata : {},
-});
+exports.generateDomainEvent = ({ id, action, params, metadata, state, }) => {
+    var _a;
+    return ({
+        id: id !== null && id !== void 0 ? id : uuid_1.v4(),
+        parent: null,
+        action,
+        status: interface_1.EventStatus.PENDING,
+        error: null,
+        params: params !== null && params !== void 0 ? params : {},
+        state: (_a = state) !== null && _a !== void 0 ? _a : {},
+        metadata: metadata !== null && metadata !== void 0 ? metadata : {},
+    });
+};
 class DomainEvents {
     constructor() {
         this.handlerMap = new Map();
