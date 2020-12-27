@@ -57,4 +57,18 @@ export interface IDomainEventHandler<T extends IDomainEvent> {
 export declare type EventCallback<T extends IDomainEvent> = (value: T) => void;
 export declare type GenerateDomainEventArgs<T extends IDomainEvent> = DeepReadonly<Pick<T, 'action' | 'params'>> & Partial<Pick<T, 'id' | 'state' | 'metadata' | 'parent'>>;
 export declare type GenerateDomainEventReturnType<T extends IDomainEvent> = IDomainEvent<T['params'], T['state']> & Pick<T, 'action' | 'metadata'>;
+export declare type Middleware<T> = {
+    /** executed before event handler */
+    before?: (event: T) => void | T | Promise<void | T>;
+    /** executed after event handler */
+    after?: (event: T) => void | T | Promise<void | T>;
+    /** executed before each phase */
+    beforeEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase) => void | T | Promise<void | T>;
+    /** executed after each phase */
+    afterEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase) => void | T | Promise<void | T>;
+};
+export declare type HandlerMapRecord<T extends IDomainEvent> = {
+    handler: IDomainEventHandler<T>;
+    middlewares: Middleware<T>[];
+};
 export {};
