@@ -81,7 +81,10 @@ export class DomainEvents {
     let returnEvent: T = event;
     let isExitEarly: boolean = false;
 
-    const exitEarlyCallback = (): void => void (isExitEarly = true);
+    const exitEarlyCallback = (event?: T): void => {
+      isExitEarly = true;
+      returnEvent = event ?? returnEvent;
+    };
 
     try {
       if (returnEvent.status === EventStatus.COMPLETED) {

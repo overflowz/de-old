@@ -70,16 +70,15 @@ export type GenerateDomainEventArgs<T extends IDomainEvent> =
 export type GenerateDomainEventReturnType<T extends IDomainEvent> =
   IDomainEvent<T['params'], T['state']> & Pick<T, 'action' | 'metadata'>;
 
-// TODO: early exit?
 export type Middleware<T> = {
   /** executed before event handler */
-  before?: (event: T, exit: () => void) => void | T | Promise<void | T>;
+  before?: (event: T, exit: (event?: T) => void) => void | T | Promise<void | T>;
   /** executed after event handler */
-  after?: (event: T, exit: () => void) => void | T | Promise<void | T>;
+  after?: (event: T, exit: (event?: T) => void) => void | T | Promise<void | T>;
   /** executed before each phase */
-  beforeEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase, exit: () => void) => void | T | Promise<void | T>;
+  beforeEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase, exit: (event?: T) => void) => void | T | Promise<void | T>;
   /** executed after each phase */
-  afterEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase, exit: () => void) => void | T | Promise<void | T>;
+  afterEach?: (event: T, children: readonly IDomainEvent[], phase: EventPhase, exit: (event?: T) => void) => void | T | Promise<void | T>;
 };
 
 export type HandlerMapRecord<T extends IDomainEvent> = {
