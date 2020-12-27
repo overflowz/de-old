@@ -74,7 +74,10 @@ class DomainEvents {
             let handlerMiddlewares = [];
             let returnEvent = event;
             let isExitEarly = false;
-            const exitEarlyCallback = () => void (isExitEarly = true);
+            const exitEarlyCallback = (event) => {
+                isExitEarly = true;
+                returnEvent = event !== null && event !== void 0 ? event : returnEvent;
+            };
             try {
                 if (returnEvent.status === interface_1.EventStatus.COMPLETED) {
                     return returnEvent;
