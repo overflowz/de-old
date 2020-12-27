@@ -79,6 +79,9 @@ export class DomainEvents {
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
     let handlerMiddlewares: Middleware<T>[] = [];
     let returnEvent: T = event;
+    let isExitEarly: boolean = false;
+
+    const exitEarlyCallback = (): void => void (isExitEarly = true);
 
     try {
       if (returnEvent.status === EventStatus.COMPLETED) {
@@ -98,7 +101,11 @@ export class DomainEvents {
       handlerMiddlewares = middlewares;
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.before?.(returnEvent) || returnEvent;
+        returnEvent = await middleware.before?.(returnEvent, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       returnEvent = {
@@ -109,7 +116,11 @@ export class DomainEvents {
       // initiation phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, [], EventPhase.INITIATE) || returnEvent;
+        returnEvent = await middleware.beforeEach?.(returnEvent, [], EventPhase.INITIATE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       let children: readonly IDomainEvent[] = await Promise.resolve(handler.initiate?.(returnEvent))
@@ -128,13 +139,21 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.INITIATE) || returnEvent;
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.INITIATE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       // execution phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.EXECUTE) || returnEvent;
+        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       children = await Promise.resolve(handler.execute?.(returnEvent, children))
@@ -153,13 +172,21 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.EXECUTE) || returnEvent;
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       // completion phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.COMPLETE) || returnEvent;
+        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       children = await Promise.resolve(handler.complete?.(returnEvent, children))
@@ -179,7 +206,11 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.COMPLETE) || returnEvent;
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
 
       // call event listeners
@@ -202,7 +233,11 @@ export class DomainEvents {
 
     try {
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.after?.(returnEvent) || returnEvent;
+        returnEvent = await middleware.after?.(returnEvent, exitEarlyCallback) || returnEvent;
+
+        if (isExitEarly) {
+          return returnEvent;
+        }
       }
     } catch (err) {
       returnEvent = {
