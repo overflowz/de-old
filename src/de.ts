@@ -4,12 +4,17 @@ import tryCatch from './utils/tryCatch';
 import {
   DeepReadonly,
   EventCallback,
+  EventPhase,
   EventStatus,
   GenerateDomainEventArgs,
   GenerateDomainEventReturnType,
+  HandlerMapRecord,
   IDomainEvent,
   IDomainEventHandler,
+  Middleware,
 } from './interface';
+
+const normalizeError = (err: any): Error => err instanceof Error ? err : new Error(err);
 
 export const generateDomainEvent = <T extends IDomainEvent>({
   id,
@@ -29,7 +34,7 @@ export const generateDomainEvent = <T extends IDomainEvent>({
 });
 
 export class DomainEvents {
-  private readonly handlerMap: Map<IDomainEvent['action'], IDomainEventHandler<any>[]> = new Map();
+  private readonly handlerMap: Map<IDomainEvent['action'], HandlerMapRecord<any>> = new Map();
   private readonly eventMap: Map<IDomainEvent['action'], EventCallback<any>[]> = new Map();
 
   constructor() {
@@ -60,15 +65,19 @@ export class DomainEvents {
     }
   }
 
-  public register<T extends IDomainEvent>(action: T['action'], handlers: IDomainEventHandler<T>[]): void {
+  public register<T extends IDomainEvent>(action: T['action'], handler: IDomainEventHandler<T>, middlewares?: Middleware<T>[]): void {
     if (this.handlerMap.has(action)) {
-      throw new Error(`handlers are already registered for the ${action} action.`);
+      throw new Error(`handler is already registered for the ${action} action type.`);
     }
 
-    this.handlerMap.set(action, handlers);
+    this.handlerMap.set(action, {
+      handler,
+      middlewares: middlewares ?? [],
+    });
   }
 
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
+    let handlerMiddlewares: Middleware<T>[] = [];
     let returnEvent: T = event;
 
     try {
@@ -80,9 +89,16 @@ export class DomainEvents {
         throw new Error(`event ${returnEvent.id} must be in ${EventStatus['PENDING']} state to proceed.`);
       }
 
-      const handlers: IDomainEventHandler<any>[] = this.handlerMap.get(returnEvent.action) ?? [];
-      if (!handlers.length) {
-        return returnEvent;
+      const handlerRecord: HandlerMapRecord<T> | undefined = this.handlerMap.get(returnEvent.action);
+      if (!handlerRecord) {
+        return event;
+      }
+
+      const { handler, middlewares } = handlerRecord;
+      handlerMiddlewares = middlewares;
+
+      for (const middleware of handlerMiddlewares) {
+        returnEvent = await middleware.before?.(returnEvent) || returnEvent;
       }
 
       returnEvent = {
@@ -90,58 +106,80 @@ export class DomainEvents {
         status: EventStatus.IN_PROGRESS,
       };
 
-      for (const handler of handlers) {
-        // initiation phase
+      // initiation phase
 
-        let children: readonly IDomainEvent[] = await Promise.resolve(handler.initiate?.(returnEvent))
-          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
+      for (const middleware of handlerMiddlewares) {
+        returnEvent = await middleware.beforeEach?.(returnEvent, [], EventPhase.INITIATE) || returnEvent;
+      }
 
-        returnEvent = {
-          ...returnEvent,
-          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          status: returnEvent.status,
-        };
+      let children: readonly IDomainEvent[] = await Promise.resolve(handler.initiate?.(returnEvent))
+        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
-        children = await Promise.all(
-          children
-            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
-            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
-        );
+      returnEvent = {
+        ...returnEvent,
+        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        status: returnEvent.status,
+      };
 
-        // execution phase
+      children = await Promise.all(
+        children
+          .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+          .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
 
-        children = await Promise.resolve(handler.execute?.(returnEvent, children))
-          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
+      for (const middleware of handlerMiddlewares.reverse()) {
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.INITIATE) || returnEvent;
+      }
 
-        returnEvent = {
-          ...returnEvent,
-          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          status: returnEvent.status,
-        };
+      // execution phase
 
-        children = await Promise.all(
-          children
-            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
-            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
-        );
+      for (const middleware of handlerMiddlewares) {
+        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.EXECUTE) || returnEvent;
+      }
 
-        // completion phase
+      children = await Promise.resolve(handler.execute?.(returnEvent, children))
+        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
-        children = await Promise.resolve(handler.complete?.(returnEvent, children))
-          .then((res) => Array.isArray(res) ? res : res ? [res] : []);
+      returnEvent = {
+        ...returnEvent,
+        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        status: returnEvent.status,
+      };
 
-        returnEvent = {
-          ...returnEvent,
-          ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
-          status: returnEvent.status,
-        };
+      children = await Promise.all(
+        children
+          .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+          .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
 
-        // "fire and forget" events returned from the complete phase
-        Promise.all(
-          children
-            .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
-            .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
-        );
+      for (const middleware of handlerMiddlewares.reverse()) {
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.EXECUTE) || returnEvent;
+      }
+
+      // completion phase
+
+      for (const middleware of handlerMiddlewares) {
+        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.COMPLETE) || returnEvent;
+      }
+
+      children = await Promise.resolve(handler.complete?.(returnEvent, children))
+        .then((res) => Array.isArray(res) ? res : res ? [res] : []);
+
+      returnEvent = {
+        ...returnEvent,
+        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        status: returnEvent.status,
+      };
+
+      // "fire and forget" events returned from the complete phase
+      Promise.all(
+        children
+          .filter((ce: IDomainEvent) => ce.id !== returnEvent.id)
+          .map((ce: IDomainEvent) => this.handleEvent({ ...ce, parent: returnEvent.id })),
+      );
+
+      for (const middleware of handlerMiddlewares.reverse()) {
+        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.COMPLETE) || returnEvent;
       }
 
       // call event listeners
@@ -155,14 +193,22 @@ export class DomainEvents {
         status: EventStatus.COMPLETED,
       };
     } catch (err) {
-      const normalizedError = err instanceof Error
-        ? err
-        : new Error(err);
-
       returnEvent = {
         ...returnEvent,
         status: EventStatus.FAILED,
-        error: normalizedError,
+        error: normalizeError(err),
+      };
+    }
+
+    try {
+      for (const middleware of handlerMiddlewares.reverse()) {
+        returnEvent = await middleware.after?.(returnEvent) || returnEvent;
+      }
+    } catch (err) {
+      returnEvent = {
+        ...returnEvent,
+        status: EventStatus.FAILED,
+        error: normalizeError(err),
       };
     }
 
