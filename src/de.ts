@@ -79,11 +79,18 @@ export class DomainEvents {
   public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
     let handlerMiddlewares: Middleware<T>[] = [];
     let returnEvent: T = event;
-    let isExitEarly: boolean = false;
+    let isEarlyExit: boolean = false;
 
     const exitEarlyCallback = (event?: T): void => {
-      isExitEarly = true;
-      returnEvent = event ?? returnEvent;
+      isEarlyExit = true;
+
+      returnEvent = {
+        ...event ?? returnEvent,
+        id: returnEvent.id,
+        parent: returnEvent.parent,
+        action: returnEvent.action,
+        status: EventStatus.COMPLETED,
+      };
     };
 
     try {
@@ -104,9 +111,15 @@ export class DomainEvents {
       handlerMiddlewares = middlewares;
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.before?.(returnEvent, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.before?.(returnEvent, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -119,9 +132,15 @@ export class DomainEvents {
       // initiation phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, [], EventPhase.INITIATE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.beforeEach?.(returnEvent, [], EventPhase.INITIATE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -130,8 +149,10 @@ export class DomainEvents {
         .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
       returnEvent = {
-        ...returnEvent,
-        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        ...children.find((ce: IDomainEvent): ce is T => ce.id === returnEvent.id) ?? returnEvent,
+        id: returnEvent.id,
+        parent: returnEvent.parent,
+        action: returnEvent.action,
         status: returnEvent.status,
       };
 
@@ -142,9 +163,15 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.INITIATE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.afterEach?.(returnEvent, children, EventPhase.INITIATE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -152,9 +179,15 @@ export class DomainEvents {
       // execution phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.beforeEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -163,8 +196,10 @@ export class DomainEvents {
         .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
       returnEvent = {
-        ...returnEvent,
-        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        ...children.find((ce: IDomainEvent): ce is T => ce.id === returnEvent.id) ?? returnEvent,
+        id: returnEvent.id,
+        parent: returnEvent.parent,
+        action: returnEvent.action,
         status: returnEvent.status,
       };
 
@@ -175,9 +210,15 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.afterEach?.(returnEvent, children, EventPhase.EXECUTE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -185,9 +226,15 @@ export class DomainEvents {
       // completion phase
 
       for (const middleware of handlerMiddlewares) {
-        returnEvent = await middleware.beforeEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.beforeEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -196,8 +243,10 @@ export class DomainEvents {
         .then((res) => Array.isArray(res) ? res : res ? [res] : []);
 
       returnEvent = {
-        ...returnEvent,
-        ...children.find((ce: IDomainEvent) => ce.id === returnEvent.id),
+        ...children.find((ce: IDomainEvent): ce is T => ce.id === returnEvent.id) ?? returnEvent,
+        id: returnEvent.id,
+        parent: returnEvent.parent,
+        action: returnEvent.action,
         status: returnEvent.status,
       };
 
@@ -209,9 +258,15 @@ export class DomainEvents {
       );
 
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.afterEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.afterEach?.(returnEvent, children, EventPhase.COMPLETE, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
@@ -236,9 +291,15 @@ export class DomainEvents {
 
     try {
       for (const middleware of handlerMiddlewares.reverse()) {
-        returnEvent = await middleware.after?.(returnEvent, exitEarlyCallback) || returnEvent;
+        returnEvent = {
+          ...await middleware.after?.(returnEvent, exitEarlyCallback) || returnEvent,
+          id: returnEvent.id,
+          parent: returnEvent.parent,
+          action: returnEvent.action,
+          status: returnEvent.status,
+        };
 
-        if (isExitEarly) {
+        if (isEarlyExit) {
           return returnEvent;
         }
       }
