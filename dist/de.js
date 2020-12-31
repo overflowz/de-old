@@ -69,14 +69,14 @@ class DomainEvents {
         });
     }
     handleEvent(event) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
         return __awaiter(this, void 0, void 0, function* () {
             let handlerMiddlewares = [];
             let returnEvent = event;
-            let isExitEarly = false;
+            let isEarlyExit = false;
             const exitEarlyCallback = (event) => {
-                isExitEarly = true;
-                returnEvent = event !== null && event !== void 0 ? event : returnEvent;
+                isEarlyExit = true;
+                returnEvent = Object.assign(Object.assign({}, event !== null && event !== void 0 ? event : returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: interface_1.EventStatus.COMPLETED });
             };
             try {
                 if (returnEvent.status === interface_1.EventStatus.COMPLETED) {
@@ -92,72 +92,72 @@ class DomainEvents {
                 const { handler, middlewares } = handlerRecord;
                 handlerMiddlewares = middlewares;
                 for (const middleware of handlerMiddlewares) {
-                    returnEvent = (yield ((_a = middleware.before) === null || _a === void 0 ? void 0 : _a.call(middleware, returnEvent, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_a = middleware.before) === null || _a === void 0 ? void 0 : _a.call(middleware, returnEvent, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
                 returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.IN_PROGRESS });
                 // initiation phase
                 for (const middleware of handlerMiddlewares) {
-                    returnEvent = (yield ((_b = middleware.beforeEach) === null || _b === void 0 ? void 0 : _b.call(middleware, returnEvent, [], interface_1.EventPhase.INITIATE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_b = middleware.beforeEach) === null || _b === void 0 ? void 0 : _b.call(middleware, returnEvent, [], interface_1.EventPhase.INITIATE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
                 let children = yield Promise.resolve((_c = handler.initiate) === null || _c === void 0 ? void 0 : _c.call(handler, returnEvent))
                     .then((res) => Array.isArray(res) ? res : res ? [res] : []);
-                returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                returnEvent = Object.assign(Object.assign({}, (_d = children.find((ce) => ce.id === returnEvent.id)) !== null && _d !== void 0 ? _d : returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
                 children = yield Promise.all(children
                     .filter((ce) => ce.id !== returnEvent.id)
                     .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                 for (const middleware of handlerMiddlewares.reverse()) {
-                    returnEvent = (yield ((_d = middleware.afterEach) === null || _d === void 0 ? void 0 : _d.call(middleware, returnEvent, children, interface_1.EventPhase.INITIATE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_e = middleware.afterEach) === null || _e === void 0 ? void 0 : _e.call(middleware, returnEvent, children, interface_1.EventPhase.INITIATE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
                 // execution phase
                 for (const middleware of handlerMiddlewares) {
-                    returnEvent = (yield ((_e = middleware.beforeEach) === null || _e === void 0 ? void 0 : _e.call(middleware, returnEvent, children, interface_1.EventPhase.EXECUTE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_f = middleware.beforeEach) === null || _f === void 0 ? void 0 : _f.call(middleware, returnEvent, children, interface_1.EventPhase.EXECUTE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
-                children = yield Promise.resolve((_f = handler.execute) === null || _f === void 0 ? void 0 : _f.call(handler, returnEvent, children))
+                children = yield Promise.resolve((_g = handler.execute) === null || _g === void 0 ? void 0 : _g.call(handler, returnEvent, children))
                     .then((res) => Array.isArray(res) ? res : res ? [res] : []);
-                returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                returnEvent = Object.assign(Object.assign({}, (_h = children.find((ce) => ce.id === returnEvent.id)) !== null && _h !== void 0 ? _h : returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
                 children = yield Promise.all(children
                     .filter((ce) => ce.id !== returnEvent.id)
                     .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                 for (const middleware of handlerMiddlewares.reverse()) {
-                    returnEvent = (yield ((_g = middleware.afterEach) === null || _g === void 0 ? void 0 : _g.call(middleware, returnEvent, children, interface_1.EventPhase.EXECUTE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_j = middleware.afterEach) === null || _j === void 0 ? void 0 : _j.call(middleware, returnEvent, children, interface_1.EventPhase.EXECUTE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
                 // completion phase
                 for (const middleware of handlerMiddlewares) {
-                    returnEvent = (yield ((_h = middleware.beforeEach) === null || _h === void 0 ? void 0 : _h.call(middleware, returnEvent, children, interface_1.EventPhase.COMPLETE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_k = middleware.beforeEach) === null || _k === void 0 ? void 0 : _k.call(middleware, returnEvent, children, interface_1.EventPhase.COMPLETE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
-                children = yield Promise.resolve((_j = handler.complete) === null || _j === void 0 ? void 0 : _j.call(handler, returnEvent, children))
+                children = yield Promise.resolve((_l = handler.complete) === null || _l === void 0 ? void 0 : _l.call(handler, returnEvent, children))
                     .then((res) => Array.isArray(res) ? res : res ? [res] : []);
-                returnEvent = Object.assign(Object.assign(Object.assign({}, returnEvent), children.find((ce) => ce.id === returnEvent.id)), { status: returnEvent.status });
+                returnEvent = Object.assign(Object.assign({}, (_m = children.find((ce) => ce.id === returnEvent.id)) !== null && _m !== void 0 ? _m : returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
                 // "fire and forget" events returned from the complete phase
                 Promise.all(children
                     .filter((ce) => ce.id !== returnEvent.id)
                     .map((ce) => this.handleEvent(Object.assign(Object.assign({}, ce), { parent: returnEvent.id }))));
                 for (const middleware of handlerMiddlewares.reverse()) {
-                    returnEvent = (yield ((_k = middleware.afterEach) === null || _k === void 0 ? void 0 : _k.call(middleware, returnEvent, children, interface_1.EventPhase.COMPLETE, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_o = middleware.afterEach) === null || _o === void 0 ? void 0 : _o.call(middleware, returnEvent, children, interface_1.EventPhase.COMPLETE, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
                 // call event listeners
-                (_l = this.eventMap.get(returnEvent.action)) === null || _l === void 0 ? void 0 : _l.map((callback) => tryCatch_1.default(() => callback(returnEvent)));
+                (_p = this.eventMap.get(returnEvent.action)) === null || _p === void 0 ? void 0 : _p.map((callback) => tryCatch_1.default(() => callback(returnEvent)));
                 // mark event as completed
                 returnEvent = Object.assign(Object.assign({}, returnEvent), { status: interface_1.EventStatus.COMPLETED });
             }
@@ -166,8 +166,8 @@ class DomainEvents {
             }
             try {
                 for (const middleware of handlerMiddlewares.reverse()) {
-                    returnEvent = (yield ((_m = middleware.after) === null || _m === void 0 ? void 0 : _m.call(middleware, returnEvent, exitEarlyCallback))) || returnEvent;
-                    if (isExitEarly) {
+                    returnEvent = Object.assign(Object.assign({}, (yield ((_q = middleware.after) === null || _q === void 0 ? void 0 : _q.call(middleware, returnEvent, exitEarlyCallback))) || returnEvent), { id: returnEvent.id, parent: returnEvent.parent, action: returnEvent.action, status: returnEvent.status });
+                    if (isEarlyExit) {
                         return returnEvent;
                     }
                 }
