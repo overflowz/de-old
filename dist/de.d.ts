@@ -7,5 +7,5 @@ export declare class DomainEvents {
     on<T extends IDomainEvent>(action: T['action'], callback: EventCallback<T>): void;
     off<T extends IDomainEvent>(action: T['action'], callback?: EventCallback<T>): void;
     register<T extends IDomainEvent>(action: T['action'], handler: IDomainEventHandler<T>, middlewares?: Middleware<T>[]): void;
-    handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>>;
+    handleEvent<T extends IDomainEvent>(event: T): Promise<T>;
 }
