@@ -1,2 +1,9 @@
 export * from './de';
-export { IDomainEvent, EventStatus, Middleware, IDomainEventHandler } from './interface';
+export {
+  IDomainEvent,
+  EventStatus,
+  Middleware,
+  IDomainEventHandler,
+  GenerateDomainEventArgs,
+  GenerateDomainEventReturnType,
+} from './interface';
