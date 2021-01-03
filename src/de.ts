@@ -76,7 +76,7 @@ export class DomainEvents {
     });
   }
 
-  public async handleEvent<T extends IDomainEvent>(event: T): Promise<GenerateDomainEventReturnType<T>> {
+  public async handleEvent<T extends IDomainEvent>(event: T): Promise<T> {
     let handlerMiddlewares: Middleware<T>[] = [];
     let returnEvent: T = event;
     let isEarlyExit: boolean = false;
